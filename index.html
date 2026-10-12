@@ -44,7 +44,7 @@
         <div class="hero-copy">
           <p class="kicker">XFM 104.9 · the podcasts · the Guides</p>
           <h1>How well do you know the <span class="orange">little round head</span>?</h1>
-          <p class="lede">Trivia about Ricky, Steve and Karl, written from the real transcripts of the XFM shows and podcasts. Score points, keep a streak going, unlock badges and send your score to your mates.</p>
+          <p class="lede">Thousands of questions about Ricky, Steve and Karl, written from the real transcripts of XFM, the podcasts and the Guides. Every answer shows you the bit of the show it came from. Score points, unlock badges and challenge your mates.</p>
           <div class="hero-actions">
             <button class="btn btn-primary btn-lg" data-start="mix" type="button">▶ Play the full mix</button>
             <button class="btn btn-ghost btn-lg" data-start="daily" type="button" id="dailyBtn">📅 Daily challenge</button>
@@ -71,9 +71,9 @@
         </div>
       </div>
 
-      <div class="karlism" aria-live="polite">
-        <div class="karlism-label">Karl's thought for the day</div>
-        <blockquote id="karlism">"Well, you don't see, like, an old man having a Twix."</blockquote>
+      <div class="karlism">
+        <div class="karlism-label" id="karlismLabel">Karl's thought for the day</div>
+        <blockquote id="karlism"></blockquote>
         <div class="karlism-src" id="karlismSrc"></div>
       </div>
 
@@ -136,7 +136,8 @@
       <h1 class="page-title">About this game</h1>
       <div class="card prose">
         <p><b>Chimpanzee That!</b> is an unofficial fan-made trivia game about the radio shows, podcasts and audiobooks of <b>Ricky Gervais</b>, <b>Stephen Merchant</b> and <b>Karl Pilkington</b>.</p>
-        <p>Every question, Rockbusters clue and quote was taken from or checked against episode transcripts. The questions cover XFM (2001 to 2005), the 2005 BBC Radio 2 specials, the Guardian podcasts and Podfathers (2005 to 2006), the Fame and NME specials, and the Ricky Gervais Guides (2008 to 2011). Each answer tells you which episode it came from, so you can go and listen to the bit.</p>
+        <p id="aboutCounts"></p>
+        <p>Every question, Rockbusters clue and quote was written from the episode transcripts and then checked a second time against the exact lines it came from. After you answer, the game shows you those lines. The questions cover XFM (2001 to 2005), the 2005 BBC Radio 2 specials, the Guardian podcasts and Podfathers (2005 to 2006), the Fame and NME specials, and the Ricky Gervais Guides (2008 to 2011). Each answer tells you which episode it came from, so you can go and listen to the bit.</p>
         <h3>Where the material comes from</h3>
         <ul>
           <li><a href="https://www.therickygervaisshow.com/xfm-vault" target="_blank" rel="noopener">The Ricky Gervais Show: XFM Vault</a> (official episode transcripts)</li>
@@ -156,12 +157,12 @@
     <a href="#/about">About &amp; credits</a>
   </footer>
 
+  <div class="next-bar" id="nextBar" hidden>
+    <button class="btn btn-primary btn-lg" id="nextBarBtn" type="button">Next ▶</button>
+  </div>
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
   <canvas id="confetti" aria-hidden="true"></canvas>
 
-  <script src="js/data-questions.js"></script>
-  <script src="js/data-rockbusters.js"></script>
-  <script src="js/data-quotes.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

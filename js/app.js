@@ -1,17 +1,14 @@
 /* Chimpanzee That! - The Ricky, Steve & Karl trivia game.
-   Plain JS, no build step, so it runs straight from GitHub Pages. */
+   Plain JS, no build step, so it runs straight from GitHub Pages.
+   Question data lives in data/*.json and is loaded on demand. */
 (function () {
   "use strict";
-
-  var QUESTIONS = window.QUESTIONS || [];
-  var ROCK = window.ROCKBUSTERS || [];
-  var QUOTES = window.QUOTES || [];
 
   /* ---------------------------------------------------------------- helpers */
   function $(s, el) { return (el || document).querySelector(s); }
   function $$(s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); }
   function esc(s) {
-    return String(s).replace(/[&<>"']/g, function (c) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
@@ -21,8 +18,12 @@
     d = d || new Date();
     return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
+  function dayNumber(d) {
+    d = d || new Date();
+    return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+  }
 
-  /* seeded random so a challenge link replays the exact same questions */
+  /* seeded random so challenges and the daily round are the same for everyone */
   function hashStr(s) {
     var h = 1779033703 ^ s.length;
     for (var i = 0; i < s.length; i++) {
@@ -91,17 +92,25 @@
     who: { label: "Who Said It?", emoji: "💬", accent: "#34d399" }
   };
 
+  /* pools = the data files. Each mode lists the pools it needs. */
+  var POOL_FILES = {
+    karl: "data/q-karl.json", ricky: "data/q-ricky.json", steve: "data/q-steve.json",
+    monkey: "data/q-monkey.json", show: "data/q-show.json", rock: "data/rock.json", who: "data/quotes.json"
+  };
+  var MCQ_POOLS = ["karl", "ricky", "steve", "monkey", "show"];
+  var ALL_POOLS = MCQ_POOLS.concat(["rock", "who"]);
+
   var MODES = [
-    { id: "mix", title: "The Full Mix", blurb: "15 from everything: Karl, Ricky, Steve, Monkey News, Rockbusters and quotes.", kind: "mix", n: 15, emoji: "🎙️", accent: "#ff8a1f" },
-    { id: "daily", title: "Daily Challenge", blurb: "The same 10 questions for everyone today. Compare scores with your mates.", kind: "mix", n: 10, daily: true, emoji: "📅", accent: "#ff4d5e" },
-    { id: "karl", title: "Karl Pilkington", blurb: "Diaries, holidays, Auntie Nora and a head like an orange.", kind: "mcq", cat: "karl", n: 10 },
-    { id: "ricky", title: "Ricky Gervais", blurb: "Boxing, salamanders, scratch cards and \"Play a record!\"", kind: "mcq", cat: "ricky", n: 10 },
-    { id: "steve", title: "Stephen Merchant", blurb: "Six foot seven of Bristol's finest. Trowels, goggles, Crouchy.", kind: "mcq", cat: "steve", n: 10 },
-    { id: "monkey", title: "Monkey News", blurb: "Oh, chimpanzee that! Space chimps, monkey surgeons and a jockey.", kind: "mcq", cat: "monkey", n: 10 },
-    { id: "show", title: "The Show", blurb: "XFM 104.9, the podcasts, the Guides, the features and the jingles.", kind: "mcq", cat: "show", n: 10 },
-    { id: "rock", title: "Rockbusters", blurb: "Karl's \"craptic\" clues. Type the band or artist from the initials.", kind: "rock", n: 8 },
-    { id: "who", title: "Who Said It?", blurb: "Ricky, Steve or Karl? Real lines from the shows.", kind: "who", n: 12 },
-    { id: "quick", title: "Quick-fire 60", blurb: "60 seconds on the clock. As many as you can. No lifelines.", kind: "quick", emoji: "⚡", accent: "#34d399" }
+    { id: "mix", title: "The Full Mix", blurb: "15 from everything: Karl, Ricky, Steve, Monkey News, Rockbusters and quotes.", kind: "mix", n: 15, emoji: "🎙️", accent: "#ff8a1f", pools: ALL_POOLS },
+    { id: "daily", title: "Daily Challenge", blurb: "The same 10 questions for everyone today. Compare scores with your mates.", kind: "mix", n: 10, daily: true, emoji: "📅", accent: "#ff4d5e", pools: ALL_POOLS },
+    { id: "karl", title: "Karl Pilkington", blurb: "Diaries, holidays, Auntie Nora and a head like an orange.", kind: "mcq", cat: "karl", n: 10, pools: ["karl"] },
+    { id: "ricky", title: "Ricky Gervais", blurb: "Boxing, salamanders, scratch cards and \"Play a record!\"", kind: "mcq", cat: "ricky", n: 10, pools: ["ricky"] },
+    { id: "steve", title: "Stephen Merchant", blurb: "Six foot seven of Bristol's finest. Trowels, goggles, Crouchy.", kind: "mcq", cat: "steve", n: 10, pools: ["steve"] },
+    { id: "monkey", title: "Monkey News", blurb: "Oh, chimpanzee that! Space chimps, monkey surgeons and a jockey.", kind: "mcq", cat: "monkey", n: 10, pools: ["monkey"] },
+    { id: "show", title: "The Show", blurb: "XFM 104.9, the podcasts, the Guides, the features and the jingles.", kind: "mcq", cat: "show", n: 10, pools: ["show"] },
+    { id: "rock", title: "Rockbusters", blurb: "Karl's \"craptic\" clues. Type the band or artist from the initials.", kind: "rock", n: 8, pools: ["rock"] },
+    { id: "who", title: "Who Said It?", blurb: "Ricky, Steve or Karl? Real lines from the shows.", kind: "who", n: 12, pools: ["who"] },
+    { id: "quick", title: "Quick-fire 60", blurb: "60 seconds on the clock. As many as you can. No lifelines.", kind: "quick", emoji: "⚡", accent: "#34d399", pools: ALL_POOLS }
   ];
   function modeById(id) { for (var i = 0; i < MODES.length; i++) if (MODES[i].id === id) return MODES[i]; return null; }
 
@@ -144,7 +153,8 @@
     { id: "beat", icon: "🥊", name: "Bovey Beater", desc: "Beat a friend's challenge score." },
     { id: "all", icon: "🌍", name: "Scrimpton", desc: "Play every round at least once." },
     { id: "moon", icon: "🌕", name: "Twenty Acres on the Moon", desc: "Reach 5,000 total points." },
-    { id: "share", icon: "📣", name: "Big Mother", desc: "Share your score with someone." }
+    { id: "share", icon: "📣", name: "Big Mother", desc: "Share your score with someone." },
+    { id: "tapes", icon: "📼", name: "Tape Head", desc: "See 500 different questions." }
   ];
 
   var CORRECT_LINES = [
@@ -180,6 +190,43 @@
       by: "NASA", license: "Public domain", note: "the real 1961 space chimp from the \"final\" Monkey News" }
   ];
 
+  /* ---------------------------------------------------------------- data loading */
+  var MANIFEST = null;
+  var POOLS = {};
+  var loading = {};
+  function getJSON(url) {
+    var v = MANIFEST && MANIFEST.version ? "?v=" + MANIFEST.version : "";
+    return fetch(url + v).then(function (r) {
+      if (!r.ok) throw new Error(url + " " + r.status);
+      return r.json();
+    });
+  }
+  function loadManifest() {
+    if (!loading.manifest) {
+      loading.manifest = fetch("data/manifest.json", { cache: "no-cache" })
+        .then(function (r) { if (!r.ok) throw new Error("manifest"); return r.json(); })
+        .then(function (m) { MANIFEST = m; return m; })
+        .catch(function (e) { delete loading.manifest; throw e; });
+    }
+    return loading.manifest;
+  }
+  function loadPool(name) {
+    if (!loading[name]) {
+      loading[name] = loadManifest().catch(function () {}).then(function () { return getJSON(POOL_FILES[name]); })
+        .then(function (arr) { POOLS[name] = arr; return arr; })
+        .catch(function (e) { delete loading[name]; throw e; });
+    }
+    return loading[name];
+  }
+  function loadPools(names) { return Promise.all(names.map(loadPool)); }
+  function poolCount(name) {
+    if (POOLS[name]) return POOLS[name].length;
+    return MANIFEST && MANIFEST.counts ? (MANIFEST.counts[name] || 0) : 0;
+  }
+  function modeCount(m) {
+    return m.pools.reduce(function (s, p) { return s + poolCount(p); }, 0);
+  }
+
   /* ---------------------------------------------------------------- profile */
   var P = store.get("profile", null) || {
     name: "", points: 0, games: 0, correct: 0, answered: 0, bestStreak: 0,
@@ -193,6 +240,40 @@
     if (P.badges[id]) return;
     P.badges[id] = Date.now();
     if (list) list.push(id);
+  }
+
+  /* questions you've already seen are skipped until you've been through the whole pool */
+  var SEEN_MAX = 15000;
+  var seenList = store.get("seen", []);
+  if (!Array.isArray(seenList)) seenList = [];
+  var seenSet = {};
+  seenList.forEach(function (id) { seenSet[id] = 1; });
+  function saveSeen() { store.set("seen", seenList); }
+  function markSeen(id) {
+    if (!id || seenSet[id]) return;
+    seenSet[id] = 1; seenList.push(id);
+    if (seenList.length > SEEN_MAX) seenList.splice(0, seenList.length - SEEN_MAX).forEach(function (o) { delete seenSet[o]; });
+    saveSeen();
+  }
+  function forgetSeen(ids) {
+    var drop = {};
+    ids.forEach(function (i) { drop[i] = 1; delete seenSet[i]; });
+    seenList = seenList.filter(function (i) { return !drop[i]; });
+    saveSeen();
+  }
+  var cycleNotice = false;
+  /* pick n unseen items from a pool; when it's nearly used up, start a fresh cycle */
+  function pickFresh(name, n, rnd) {
+    var pool = POOLS[name] || [];
+    var unseen = pool.filter(function (x) { return !seenSet[x.id]; });
+    if (unseen.length < n && pool.length > n) {
+      var picked = shuffle(unseen, rnd);
+      forgetSeen(pool.map(function (x) { return x.id; }));
+      cycleNotice = true;
+      var rest = shuffle(pool.filter(function (x) { return picked.indexOf(x) === -1; }), rnd);
+      return picked.concat(rest).slice(0, n);
+    }
+    return shuffle(unseen, rnd).slice(0, n);
   }
 
   /* ---------------------------------------------------------------- sound */
@@ -230,7 +311,7 @@
     var t = $("#toast");
     t.textContent = msg; t.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { t.hidden = true; }, 2600);
+    toastTimer = setTimeout(function () { t.hidden = true; }, 3200);
   }
 
   function confetti() {
@@ -259,40 +340,64 @@
   }
 
   /* ---------------------------------------------------------------- building a round */
-  function mcqItem(q, rnd) {
-    return { type: "mcq", cat: q.c, d: q.d || 2, text: q.q, options: shuffle([q.a].concat(q.x), rnd), answer: q.a, fact: q.f, src: q.s };
+  function mcqItem(q, cat, rnd) {
+    return { type: "mcq", id: q.id, cat: cat, d: q.d || 2, text: q.q, options: shuffle([q.a].concat(q.x), rnd), answer: q.a,
+      fact: q.f, src: q.s, ex: q.ex };
   }
   function rockItem(r, rnd, typed) {
-    return { type: typed ? "rock" : "rockmc", cat: "rock", d: 2, initials: r.i, clue: r.c, answer: r.a, pun: r.pun,
-      options: shuffle([r.a].concat(r.x), rnd), src: r.src, alt: r.alt || [] };
+    return { type: typed ? "rock" : "rockmc", id: r.id, cat: "rock", d: 2, initials: r.i, clue: r.c, answer: r.a, pun: r.pun,
+      options: shuffle([r.a].concat(r.x), rnd), src: r.s, ex: r.ex, alt: r.alt || [] };
   }
   function whoItem(w) {
-    return { type: "who", cat: "who", d: 1, quote: w.t, answer: w.w, src: w.s };
+    return { type: "who", id: w.id, cat: "who", d: 1, quote: w.t, answer: w.w, src: w.s, ex: w.ex, hl: w.hl };
+  }
+  function makeItem(poolName, raw, rnd, typedRock) {
+    if (poolName === "rock") return rockItem(raw, rnd, typedRock);
+    if (poolName === "who") return whoItem(raw);
+    return mcqItem(raw, poolName, rnd);
   }
 
-  function buildItems(mode, seed) {
+  /* weights for the mixed rounds: plenty of Karl, a bit of everything else */
+  var MIX_WEIGHTS = [["karl", 34], ["ricky", 13], ["steve", 12], ["monkey", 9], ["show", 12], ["rock", 8], ["who", 12]];
+  function weightedPool(rnd) {
+    var avail = MIX_WEIGHTS.filter(function (w) { return (POOLS[w[0]] || []).length; });
+    var tot = avail.reduce(function (s, w) { return s + w[1]; }, 0), r = rnd() * tot;
+    for (var i = 0; i < avail.length; i++) { r -= avail[i][1]; if (r <= 0) return avail[i][0]; }
+    return avail[avail.length - 1][0];
+  }
+
+  /* fresh = avoid already-seen questions (normal rounds); seeded rounds must be identical for everyone */
+  function buildItems(mode, seed, fresh) {
     var rnd = mulberry32(hashStr(mode.id + ":" + seed));
     var items = [];
-    if (mode.kind === "mcq") {
-      items = shuffle(QUESTIONS.filter(function (q) { return q.c === mode.cat; }), rnd).slice(0, mode.n)
-        .map(function (q) { return mcqItem(q, rnd); });
-      items.sort(function (a, b) { return a.d - b.d; });
-    } else if (mode.kind === "rock") {
-      items = shuffle(ROCK, rnd).slice(0, mode.n).map(function (r) { return rockItem(r, rnd, true); });
-    } else if (mode.kind === "who") {
-      items = shuffle(QUOTES, rnd).slice(0, mode.n).map(whoItem);
-    } else if (mode.kind === "mix") {
-      var nRock = Math.round(mode.n * 0.2), nWho = Math.round(mode.n * 0.2), nQ = mode.n - nRock - nWho;
-      var qs = shuffle(QUESTIONS, rnd).slice(0, nQ).map(function (q) { return mcqItem(q, rnd); });
-      var rs = shuffle(ROCK, rnd).slice(0, nRock).map(function (r) { return rockItem(r, rnd, false); });
-      var ws = shuffle(QUOTES, rnd).slice(0, nWho).map(whoItem);
-      items = shuffle(qs.concat(rs, ws), rnd);
-    } else if (mode.kind === "quick") {
-      var all = QUESTIONS.map(function (q) { return mcqItem(q, rnd); })
-        .concat(ROCK.map(function (r) { return rockItem(r, rnd, false); }))
-        .concat(QUOTES.map(whoItem));
-      items = shuffle(all, rnd).slice(0, 120);
+    function take(name, n) {
+      var pool = POOLS[name] || [];
+      var raw = fresh ? pickFresh(name, n, rnd) : shuffle(pool, rnd).slice(0, n);
+      return raw.map(function (x) { return makeItem(name, x, rnd, mode.kind === "rock"); });
     }
+    if (mode.kind === "mcq" || mode.kind === "rock" || mode.kind === "who") {
+      items = take(mode.pools[0], mode.n);
+      if (mode.kind === "mcq") items.sort(function (a, b) { return a.d - b.d; });
+    } else {
+      var count = mode.kind === "quick" ? 120 : mode.n;
+      var want = {};
+      for (var i = 0; i < count; i++) { var p = weightedPool(rnd); want[p] = (want[p] || 0) + 1; }
+      Object.keys(want).sort().forEach(function (p) { items = items.concat(take(p, want[p])); });
+      items = shuffle(items, rnd);
+    }
+    return items;
+  }
+
+  /* rebuild a friend's exact round from the question ids in their challenge link */
+  function itemsFromIds(mode, ids, seed) {
+    var rnd = mulberry32(hashStr("challenge:" + seed));
+    var byId = {};
+    mode.pools.forEach(function (p) { (POOLS[p] || []).forEach(function (x) { byId[x.id] = [p, x]; }); });
+    var items = [];
+    ids.forEach(function (id) {
+      var hit = byId[id];
+      if (hit) items.push(makeItem(hit[0], hit[1], rnd, mode.kind === "rock"));
+    });
     return items;
   }
 
@@ -301,28 +406,54 @@
   var pendingStart = null;
   var timerRAF = null;
   var incomingChallenge = null;
+  var startToken = 0;
+  var startingMode = null; // a round whose questions are still loading
 
   function startGame(modeId, opts) {
     opts = opts || {};
     var mode = modeById(modeId);
     if (!mode) { location.hash = "#/"; return; }
-    var seed = opts.seed || (mode.daily ? "daily-" + todayKey() : newSeed());
-    G = {
-      mode: mode, seed: seed, items: buildItems(mode, seed), i: 0, score: 0, correct: 0,
-      streak: 0, bestStreak: 0, answers: [], lifelines: { fifty: 1, karl: 1 }, usedLifeline: false,
-      challenge: opts.challenge || null, finished: false, quickEnds: 0, rockTyped: 0, askKarlFail: false
-    };
+    var token = ++startToken;
+    G = null;
+    startingMode = modeId;
+    stopTimer();
     $("#playTitle").textContent = mode.title;
     $("#scoreNow").textContent = "0";
     $("#streak").hidden = true;
     $("#feedback").hidden = true;
-    $("#lifelines").hidden = mode.kind === "quick" || mode.kind === "who" || mode.kind === "rock";
-    resetLifelineButtons();
-    if (mode.kind === "quick") {
-      G.quickEnds = performance.now() + 60000;
-      runQuickTimer();
-    }
-    renderItem();
+    $("#lifelines").hidden = true;
+    hideNextBar();
+    $("#qCounter").textContent = "";
+    $("#timerText").textContent = "";
+    $("#progressBar").style.width = "0";
+    $("#timerBar").style.transform = "scaleX(1)";
+    $("#qCard").innerHTML = '<div class="loading"><div class="reel" aria-hidden="true"></div><p>Cueing up the tape...</p></div>';
+    loadPools(mode.pools).then(function () {
+      if (token !== startToken) return;
+      startingMode = null;
+      var seed = opts.seed || (mode.daily ? "daily-" + todayKey() : newSeed());
+      cycleNotice = false;
+      var items = opts.ids ? itemsFromIds(mode, opts.ids, seed) : [];
+      if (!items.length) items = buildItems(mode, seed, !mode.daily && !opts.seed);
+      if (!items.length) throw new Error("no questions");
+      G = {
+        mode: mode, seed: seed, items: items, i: 0, score: 0, correct: 0,
+        streak: 0, bestStreak: 0, answers: [], lifelines: { fifty: 1, karl: 1 }, usedLifeline: false,
+        challenge: opts.challenge || null, finished: false, quickEnds: 0, rockTyped: 0, askKarlFail: false
+      };
+      if (cycleNotice) toast("You've seen every question in this round, so they're shuffled back in. Fresh cycle!");
+      if (mode.kind === "quick") {
+        G.quickEnds = performance.now() + 60000;
+        runQuickTimer();
+      }
+      renderItem();
+    }).catch(function () {
+      if (token !== startToken) return;
+      startingMode = null;
+      $("#qCard").innerHTML = '<div class="loading"><p>Couldn\'t load the questions. Check your connection and try again.</p>' +
+        '<button class="btn btn-primary" type="button" id="retryLoad">Try again</button></div>';
+      $("#retryLoad").addEventListener("click", function () { startGame(modeId, opts); });
+    });
   }
 
   function resetLifelineButtons() {
@@ -334,7 +465,7 @@
 
   function timeFor(item) {
     if (G.mode.kind === "quick") return 0;
-    return { mcq: 20, rockmc: 25, who: 15, rock: 45 }[item.type] || 20;
+    return { mcq: 25, rockmc: 25, who: 15, rock: 45 }[item.type] || 20;
   }
 
   function stopTimer() { if (timerRAF) cancelAnimationFrame(timerRAF); timerRAF = null; }
@@ -364,8 +495,9 @@
 
   function runQuickTimer() {
     var bar = $("#timerBar"), txt = $("#timerText");
+    var me = G;
     (function frame(now) {
-      if (!G || G.finished || G.mode.kind !== "quick") return;
+      if (!G || G !== me || G.finished) return;
       var left = Math.max(0, (G.quickEnds - now) / 1000);
       bar.style.transform = "scaleX(" + (left / 60) + ")";
       bar.classList.toggle("low", left <= 10); txt.classList.toggle("low", left <= 10);
@@ -375,9 +507,7 @@
     })(performance.now());
   }
 
-  function diffLabel(d) {
-    return ["", "●○○ Easy", "●●○ Medium", "●●● Hard"][d] || "";
-  }
+  function diffLabel(d) { return ["", "●○○ Easy", "●●○ Medium", "●●● Hard"][d] || ""; }
   function basePoints(item) {
     if (G.mode.kind === "quick") return 100;
     if (item.type === "rock") return 250;
@@ -400,6 +530,7 @@
     $("#qCounter").textContent = isQuick ? "Question " + (G.i + 1) : (G.i + 1) + " / " + n;
     $("#progressBar").style.width = isQuick ? "100%" : ((G.i / n) * 100) + "%";
     $("#feedback").hidden = true;
+    hideNextBar();
     var card = $("#qCard");
     var cat = CATS[item.cat] || CATS.show;
     card.style.setProperty("--accent", cat.accent);
@@ -408,14 +539,14 @@
 
     if (item.type === "mcq" || item.type === "rockmc") {
       var text = item.type === "mcq" ? esc(item.text)
-        : "Rockbusters! Initials <b style=\"color:var(--banana)\">" + esc(item.initials) + "</b>. Karl's clue: \"" + esc(item.clue) + "\"";
+        : "Rockbusters! Initials <b class=\"hl-initials\">" + esc(item.initials) + "</b>. Karl's clue: \"" + esc(item.clue) + "\"";
       card.innerHTML = head + '<div class="q-text">' + text + "</div>" + optionsHtml(item);
     } else if (item.type === "rock") {
       card.innerHTML = head +
         '<div class="rock-board"><div class="rock-initials" aria-label="Initials ' + esc(item.initials) + '">' + esc(item.initials) + "</div>" +
         '<div class="rock-clue">' + esc(item.clue) + "</div>" +
         '<div class="rock-by">Karl\'s cryptic clue: name the band or artist</div>' +
-        '<form class="rock-form" id="rockForm" autocomplete="off"><input id="rockInput" aria-label="Your answer" placeholder="Type the band or artist..." maxlength="60"><button class="btn btn-primary" type="submit">Guess</button></form>' +
+        '<form class="rock-form" id="rockForm" autocomplete="off"><input id="rockInput" aria-label="Your answer" placeholder="Type the band or artist..." maxlength="60" enterkeyhint="go" autocapitalize="words"><button class="btn btn-primary" type="submit">Guess</button></form>' +
         '<div class="rock-alt"><button class="btn btn-small btn-ghost" id="rockOptions" type="button">🤷 Give us some options (half points)</button></div></div>';
       $("#rockForm").addEventListener("submit", function (e) {
         e.preventDefault();
@@ -431,22 +562,21 @@
         board.insertAdjacentHTML("beforeend", optionsHtml(item));
         bindOptions(item);
       });
-      setTimeout(function () { var i = $("#rockInput"); if (i) i.focus(); }, 50);
+      if (!isTouch()) setTimeout(function () { var i = $("#rockInput"); if (i) i.focus(); }, 50);
     } else if (item.type === "who") {
       card.innerHTML = head + '<div class="quote-bubble">' + esc(item.quote) + '</div><div class="who-options">' +
         ["ricky", "steve", "karl"].map(function (k, idx) {
           return '<button class="who-btn" type="button" data-who="' + k + '" aria-label="' + PEOPLE[k].name + '"><img src="' + PEOPLE[k].img + '" alt="">' +
-            (idx + 1) + ". " + PEOPLE[k].short + "</button>";
+            "<span>" + (idx + 1) + ". " + PEOPLE[k].short + "</span></button>";
         }).join("") + "</div>";
       $$(".who-btn", card).forEach(function (b) {
         b.addEventListener("click", function () { answer(b.getAttribute("data-who")); });
       });
     }
     if (item.type === "mcq" || item.type === "rockmc") bindOptions(item);
-    var lifeOk = (item.type === "mcq" || item.type === "rockmc") && G.mode.kind !== "quick";
+    var lifeOk = (item.type === "mcq" || item.type === "rockmc") && !isQuick;
     $("#lifelines").hidden = !lifeOk;
     resetLifelineButtons();
-    item._start = performance.now();
     runItemTimer(item);
   }
 
@@ -481,6 +611,7 @@
     var targets = [item.answer].concat(item.alt || []);
     return targets.some(function (t) {
       var tn = norm(t).replace(/ /g, "");
+      if (!tn) return false;
       if (guess === tn) return true;
       if (tn.length >= 5 && guess.indexOf(tn) !== -1) return true;
       return lev(guess, tn) <= Math.max(1, Math.floor(tn.length / 6));
@@ -494,6 +625,7 @@
     if (!item || item._done) return;
     item._done = true;
     stopTimer();
+    markSeen(item.id);
     var ok;
     if (meta.timeout) ok = false;
     else if (item.type === "rock" && meta.typed) ok = rockMatch(choice, item);
@@ -520,7 +652,6 @@
     G.score += pts;
     G.answers.push({ item: item, choice: meta.timeout ? null : choice, ok: ok, pts: pts });
 
-    // paint the answer state
     var card = $("#qCard");
     if (item.type === "who") {
       $$(".who-btn", card).forEach(function (b) {
@@ -530,7 +661,7 @@
         else if (k === choice) b.classList.add("wrong");
       });
     } else if (item.type === "rock" && meta.typed) {
-      var inp = $("#rockInput"); if (inp) { inp.disabled = true; inp.style.borderColor = ok ? "var(--green)" : "var(--red)"; }
+      var inp = $("#rockInput"); if (inp) { inp.disabled = true; inp.style.borderColor = ok ? "var(--green)" : "var(--red)"; inp.blur(); }
       $$(".rock-form button, #rockOptions", card).forEach(function (b) { b.disabled = true; });
     } else {
       $$(".opt", card).forEach(function (b) {
@@ -549,10 +680,29 @@
     $("#streakNum").textContent = G.streak;
 
     if (G.mode.kind === "quick") {
-      setTimeout(function () { if (G && !G.finished) { G.i++; renderItem(); } }, ok ? 380 : 900);
+      var me = G;
+      setTimeout(function () { if (G === me && !G.finished) { G.i++; renderItem(); } }, ok ? 380 : 900);
       return;
     }
     showFeedback(item, ok, pts, meta);
+  }
+
+  /* the transcript lines the answer came from */
+  function speakerName(sp) {
+    if (PEOPLE[sp]) return PEOPLE[sp].short;
+    if (!sp || sp === "-") return "";
+    return sp.charAt(0).toUpperCase() + sp.slice(1);
+  }
+  function transcriptHtml(item) {
+    if (!item.ex || !item.ex.length) return "";
+    var rows = item.ex.map(function (l, idx) {
+      if (!l || l[0] === "…") return '<div class="tx-gap" aria-hidden="true">· · ·</div>';
+      var sp = l[0], txt = l[1];
+      if (sp === "-") return '<div class="tx-line tx-dir">' + esc(txt) + "</div>";
+      var cls = "tx-line" + (PEOPLE[sp] ? " sp-" + sp : "") + (item.hl === idx ? " hl" : "");
+      return '<div class="' + cls + '"><b class="tx-sp">' + esc(speakerName(sp)) + "</b><span>" + esc(txt) + "</span></div>";
+    }).join("");
+    return '<details class="tx" open><summary>📼 From the transcript</summary><div class="tx-body">' + rows + "</div></details>";
   }
 
   function showFeedback(item, ok, pts, meta) {
@@ -565,26 +715,51 @@
       body = '<p class="fb-fact">The answer was <b>' + esc(item.answer) + '</b>. <span class="rock-pun">' + esc(item.pun) + "</span></p>";
     } else {
       if (!ok) body += '<p class="fb-fact">The answer was <b>' + esc(item.answer) + "</b>.</p>";
-      body += '<p class="fb-fact">' + esc(item.fact) + "</p>";
+      if (item.fact) body += '<p class="fb-fact">' + esc(item.fact) + "</p>";
     }
     var last = G.i >= G.items.length - 1;
+    var label = last ? "See your score ▶" : "Next ▶";
     fb.className = "feedback " + (ok ? "good" : "bad");
     fb.innerHTML = '<div class="fb-head"><span>' + (ok ? "✅" : meta.timeout ? "⏰" : "❌") + "</span><span>" + esc(title) + "</span>" +
       (ok ? '<span class="fb-points">+' + fmt(pts) + "</span>" : "") + "</div>" + body +
-      '<div class="fb-src">📼 Source: ' + esc(item.src) + "</div>" +
-      '<div class="fb-actions"><button class="btn btn-primary" id="nextBtn" type="button">' + (last ? "See your score ▶" : "Next ▶") + "</button></div>";
+      transcriptHtml(item) +
+      '<div class="fb-src">Source: ' + esc(item.src) + "</div>" +
+      '<div class="fb-actions"><button class="btn btn-primary" id="nextBtn" type="button">' + label + "</button></div>";
     fb.hidden = false;
     $("#nextBtn").addEventListener("click", next);
+    showNextBar(label);
     setTimeout(function () {
-      var nb = $("#nextBtn");
-      if (nb) { nb.focus({ preventScroll: true }); fb.scrollIntoView({ behavior: "smooth", block: "nearest" }); }
+      if (!$("#nextBtn")) return;
+      if (isCompact()) {
+        var top = fb.getBoundingClientRect().top + window.scrollY - 72;
+        window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      } else {
+        $("#nextBtn").focus({ preventScroll: true });
+        fb.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
     }, 60);
   }
 
+  /* on phones and tablets the Next button also sits in a bar fixed to the bottom of the screen */
+  function isCompact() { return !!(window.matchMedia && window.matchMedia("(max-width: 820px)").matches); }
+  function isTouch() { return !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches); }
+  function showNextBar(label) {
+    $("#nextBarBtn").textContent = label;
+    $("#nextBar").hidden = false;
+    document.body.classList.add("has-nextbar");
+  }
+  function hideNextBar() {
+    $("#nextBar").hidden = true;
+    document.body.classList.remove("has-nextbar");
+  }
+
   function next() {
-    if (!G) return;
+    if (!G || G.finished) return;
+    var item = currentItem();
+    if (!item || !item._done) return;
     sfx.click();
     G.i++;
+    hideNextBar();
     if (G.i >= G.items.length) finishGame();
     else { renderItem(); window.scrollTo({ top: 0, behavior: "smooth" }); }
   }
@@ -593,12 +768,12 @@
   function useFifty() {
     var item = currentItem();
     if (!item || item._done || !G.lifelines.fifty || !(item.type === "mcq" || item.type === "rockmc")) return;
+    if (!$(".opt", $("#qCard"))) return;
     G.lifelines.fifty = 0; G.usedLifeline = true; item.usedFifty = true;
     var wrong = item.options.filter(function (o) { return o !== item.answer && o !== item.karlPick; });
-    var rnd = Math.random;
-    var keep = item.karlPick && item.karlPick !== item.answer ? item.karlPick : pick(wrong, rnd);
+    var keep = item.karlPick && item.karlPick !== item.answer ? item.karlPick : pick(wrong);
     var removed = 0;
-    shuffle(item.options.slice(), rnd).forEach(function (o) {
+    shuffle(item.options.slice(), Math.random).forEach(function (o) {
       if (removed < 2 && o !== item.answer && o !== keep) {
         var idx = item.options.indexOf(o);
         var b = $('.opt[data-opt="' + idx + '"]', $("#qCard"));
@@ -611,6 +786,7 @@
   function useKarl() {
     var item = currentItem();
     if (!item || item._done || !G.lifelines.karl || !(item.type === "mcq" || item.type === "rockmc")) return;
+    if (!$(".opt", $("#qCard"))) return;
     G.lifelines.karl = 0; G.usedLifeline = true;
     var live = item.options.filter(function (o, i) {
       var b = $('.opt[data-opt="' + i + '"]', $("#qCard"));
@@ -633,6 +809,7 @@
     if (!G || G.finished) return;
     G.finished = true;
     stopTimer();
+    hideNextBar();
     var mode = G.mode;
     var total = mode.kind === "quick" ? G.answers.length : G.items.length;
     var pct = total ? G.correct / total : 0;
@@ -663,11 +840,13 @@
     if (total > 0 && G.correct === 0) award("shambles", newBadges);
     if (MODES.every(function (m) { return P.modes[m.id]; })) award("all", newBadges);
     if (P.points >= 5000) award("moon", newBadges);
+    if (seenList.length >= 500) award("tapes", newBadges);
 
     var duel = null;
     if (G.challenge) {
       award("challenger", newBadges);
-      duel = { d: Date.now(), m: mode.id, them: G.challenge, me: { n: playerName(), p: G.score, k: G.correct, t: total } };
+      duel = { d: Date.now(), m: mode.id, them: { n: G.challenge.n, p: G.challenge.p, k: G.challenge.k, t: G.challenge.t },
+        me: { n: playerName(), p: G.score, k: G.correct, t: total } };
       if (G.score > G.challenge.p) award("beat", newBadges);
       P.duels.unshift(duel); P.duels = P.duels.slice(0, 30);
     }
@@ -685,13 +864,14 @@
     return { img: "img/karl-face.jpg", q: "Right, to every question now I'm going to have egg as the answer.", line: "You may as well do what Karl does on University Challenge and answer \"egg\" to everything." };
   }
 
+  /* the link carries the exact question ids, so the friend gets the same round */
   function challengeUrl() {
-    var data = { m: G.mode.id, s: G.seed, n: playerName().slice(0, 20), p: G.score, k: G.correct, t: G.result.total };
+    var list = G.mode.kind === "quick" ? G.answers.map(function (a) { return a.item.id; }) : G.items.map(function (it) { return it.id; });
+    var data = { m: G.mode.id, s: G.seed, q: list.filter(Boolean), n: playerName().slice(0, 20), p: G.score, k: G.correct, t: G.result.total };
     return location.origin + location.pathname + "?c=" + b64urlEncode(data);
   }
   function shareText() {
-    var mode = G.mode;
-    return "I scored " + fmt(G.score) + " points (" + G.correct + "/" + G.result.total + ") in " + mode.title +
+    return "I scored " + fmt(G.score) + " points (" + G.correct + "/" + G.result.total + ") in " + G.mode.title +
       " on Chimpanzee That!, the Ricky, Steve & Karl trivia game. Think you know more about the little round head? 🍊🐒";
   }
 
@@ -761,9 +941,9 @@
     $("#shCard").addEventListener("click", function () { makeScoreCard(); shared(); });
     $("#shLink").addEventListener("focus", function () { this.select(); });
     $("#againBtn").addEventListener("click", function () {
-      if (G.mode.daily) { pendingStart = { mode: "mix" }; location.hash = "#/play/mix"; route(); return; }
-      pendingStart = { mode: G.mode.id };
-      var id = G.mode.id; G = null;
+      var id = G.mode.daily ? "mix" : G.mode.id;
+      pendingStart = { mode: id };
+      G = null;
       location.hash = "#/play/" + id; route();
     });
     updateNav();
@@ -811,7 +991,7 @@
         ctx.save(); ctx.beginPath(); ctx.arc(xs[i], y, r, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
         if (im) {
           var sc = Math.max((2 * r) / im.width, (2 * r) / im.height);
-          ctx.drawImage(im, xs[i] - im.width * sc / 2, y - im.height * sc / 2 - 10, im.width * sc, im.height * sc);
+          ctx.drawImage(im, xs[i] - im.width * sc / 2, y - im.height * sc / 2, im.width * sc, im.height * sc);
         } else { ctx.fillStyle = cols[i]; ctx.fill(); }
         ctx.restore();
         ctx.lineWidth = 10; ctx.strokeStyle = cols[i]; ctx.beginPath(); ctx.arc(xs[i], y, r, 0, Math.PI * 2); ctx.stroke();
@@ -854,19 +1034,41 @@
       var best = P.best[m.id];
       var tag = m.daily && !daily ? '<span class="tag">NEW TODAY</span>' : "";
       var sub = m.daily && daily ? "Done today: " + fmt(daily.p) + " pts (" + daily.k + "/" + daily.t + ")" : best ? "Best: " + fmt(best) + " pts" : "";
+      var cnt = modeCount(m);
+      var unit = m.kind === "who" ? " quotes" : m.kind === "rock" ? " clues" : " questions";
+      var cntLine = cnt && !m.daily ? '<span class="count">' + fmt(cnt) + unit + "</span>" : "";
       return '<button class="mode' + (m.kind === "mix" ? " featured" : "") + '" type="button" data-start="' + m.id + '" style="--accent:' + accent + '">' + modeIconHtml(m) +
-        "<div><h3>" + esc(m.title) + tag + "</h3><p>" + esc(m.blurb) + "</p>" + (sub ? '<span class="best">' + esc(sub) + "</span>" : "") + "</div></button>";
+        '<div class="mode-body"><h3>' + esc(m.title) + tag + "</h3><p>" + esc(m.blurb) + "</p>" +
+        '<div class="mode-meta">' + cntLine + (sub ? '<span class="best">' + esc(sub) + "</span>" : "") + "</div></div></button>";
     }).join("");
     var acc = P.answered ? Math.round((P.correct / P.answered) * 100) : 0;
+    var total = ALL_POOLS.reduce(function (s, p) { return s + poolCount(p); }, 0);
     $("#statsStrip").innerHTML =
-      '<div class="stat"><b>' + fmt(QUESTIONS.length + ROCK.length + QUOTES.length) + "</b><span>questions, clues &amp; quotes</span></div>" +
-      '<div class="stat"><b>' + fmt(P.games) + "</b><span>rounds you've played</span></div>" +
+      '<div class="stat"><b>' + (total ? fmt(total) : "…") + "</b><span>questions, clues &amp; quotes</span></div>" +
+      '<div class="stat"><b>' + fmt(seenList.length) + "</b><span>you've seen so far</span></div>" +
       '<div class="stat"><b>' + acc + "%</b><span>your accuracy</span></div>" +
       '<div class="stat"><b>' + Object.keys(P.badges).length + "/" + BADGES.length + "</b><span>badges unlocked</span></div>";
     $("#playerName").value = P.name || "";
     $("#rankChip").textContent = rankFor(P.points).name;
+    renderKarlism();
     renderChallengeBanner();
     updateNav();
+  }
+
+  /* Karl's thought for the day: one quote per calendar day, the same for everyone */
+  var FALLBACK_KARLISMS = [
+    { t: "Well, you don't see, like, an old man having a Twix.", s: "XFM S2E19 · 28 Dec 2002" },
+    { t: "Because... bricks don't fall in wars.", s: "XFM S1E21 · 20 Apr 2002" },
+    { t: "I was a latecomer to pasta.", s: "The Ricky Gervais Guide to The English · 2009" }
+  ];
+  function renderKarlism() {
+    var list = (MANIFEST && MANIFEST.karlisms && MANIFEST.karlisms.length) ? MANIFEST.karlisms : null;
+    if (!list) { $("#karlism").textContent = ""; $("#karlismSrc").textContent = ""; list = FALLBACK_KARLISMS; }
+    var k = list[hashStr("karlism:" + dayNumber()) % list.length];
+    var d = new Date();
+    $("#karlismLabel").textContent = "Karl's thought for " + d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+    $("#karlism").textContent = "“" + k.t + "”";
+    $("#karlismSrc").textContent = "Karl Pilkington · " + k.s + " · a new one tomorrow";
   }
 
   function renderChallengeBanner() {
@@ -879,7 +1081,7 @@
       '<button class="btn btn-small btn-ghost" id="dismissBtn" type="button">Not now</button>';
     b.hidden = false;
     $("#acceptBtn").addEventListener("click", function () {
-      pendingStart = { mode: c.m, seed: c.s, challenge: c };
+      pendingStart = { mode: c.m, seed: c.s, ids: c.q, challenge: c };
       location.hash = "#/play/" + c.m; route();
     });
     $("#dismissBtn").addEventListener("click", function () { incomingChallenge = null; b.hidden = true; });
@@ -917,8 +1119,12 @@
       '<div class="res-grid" style="margin-top:12px">' +
       '<div class="stat"><b>' + fmt(P.games) + '</b><span>rounds</span></div>' +
       '<div class="stat"><b>' + fmt(P.correct) + '</b><span>right answers</span></div>' +
-      '<div class="stat"><b>' + (P.bestStreak || 0) + '</b><span>best streak</span></div></div>' +
-      '<button class="btn btn-small btn-ghost" id="resetBtn" type="button">Reset my progress</button></div>';
+      '<div class="stat"><b>' + fmt(seenList.length) + '</b><span>questions seen</span></div></div>' +
+      '<div class="profile-actions"><button class="btn btn-small btn-ghost" id="resetSeenBtn" type="button">Let old questions come back</button>' +
+      '<button class="btn btn-small btn-ghost" id="resetBtn" type="button">Reset my progress</button></div></div>';
+    $("#resetSeenBtn").addEventListener("click", function () {
+      seenList = []; seenSet = {}; saveSeen(); renderProfile(); toast("Question history cleared.");
+    });
     $("#resetBtn").addEventListener("click", function () {
       if (!confirm("Wipe all your points, scores and badges on this device?")) return;
       var name = P.name;
@@ -937,41 +1143,33 @@
         (c.by ? " by " + esc(c.by) : "") + (c.license ? ", " + (c.licenseUrl ? '<a href="' + esc(c.licenseUrl) + '" target="_blank" rel="noopener">' + esc(c.license) + "</a>" : esc(c.license)) : "") +
         (c.note ? " (" + esc(c.note) + ")" : "") + "</li>";
     }).join("");
+    var c = MANIFEST && MANIFEST.counts;
+    if (c) {
+      $("#aboutCounts").textContent = "Right now there are " + fmt(MCQ_POOLS.reduce(function (s, p) { return s + (c[p] || 0); }, 0)) + " questions, " +
+        fmt(c.rock || 0) + " Rockbusters clues and " + fmt(c.who || 0) + " quotes, taken from " + fmt(MANIFEST.episodes || 0) + " episodes.";
+    }
   }
 
   function updateNav() {
     $("#navPoints").textContent = fmt(P.points);
   }
 
-  /* ---------------------------------------------------------------- Karl's thought for the day */
-  var karlQuotes = QUOTES.filter(function (q) { return q.w === "karl"; });
-  var kq = Math.floor(Math.random() * karlQuotes.length);
-  function rotateKarlism() {
-    if (!karlQuotes.length) return;
-    var el = $("#karlism"), src = $("#karlismSrc");
-    el.style.opacity = 0;
-    setTimeout(function () {
-      kq = (kq + 1) % karlQuotes.length;
-      el.textContent = "“" + karlQuotes[kq].t + "”";
-      src.textContent = "Karl Pilkington · " + karlQuotes[kq].s;
-      el.style.opacity = 1;
-    }, 400);
-  }
-
   /* ---------------------------------------------------------------- routing */
   function showScreen(name) {
     $$(".screen").forEach(function (s) { s.hidden = s.getAttribute("data-screen") !== name; });
+    document.body.setAttribute("data-screen", name);
   }
   function route() {
     var h = (location.hash || "#/").replace(/^#\/?/, "");
     var parts = h.split("/");
     var r = parts[0] || "";
-    if (r !== "play") stopTimer();
+    if (r !== "play") { stopTimer(); hideNextBar(); startToken++; startingMode = null; }
     // leaving a round half-way through abandons it (its points never counted)
     if (r !== "play" && r !== "results" && G && !G.finished) G.finished = true;
     if (r === "play") {
       var id = parts[1];
-      if (!G || G.finished || G.mode.id !== id || pendingStart) {
+      var loadingThis = !G && startingMode === id;
+      if (pendingStart || (!G && !loadingThis) || (G && (G.finished || G.mode.id !== id))) {
         var opts = pendingStart && pendingStart.mode === id ? pendingStart : {};
         pendingStart = null;
         startGame(id, opts);
@@ -988,9 +1186,8 @@
     } else {
       showScreen("home"); renderHome();
     }
-    var main = $("#main");
     if (r !== "play") window.scrollTo(0, 0);
-    main.focus({ preventScroll: true });
+    $("#main").focus({ preventScroll: true });
   }
 
   /* ---------------------------------------------------------------- events */
@@ -1011,7 +1208,7 @@
     if (!item) return;
     if (item._done) {
       if ((e.key === "Enter" || e.key === " " || e.key === "ArrowRight") && G.mode.kind !== "quick") {
-        if (e.target && e.target.id === "nextBtn") return; // let the button handle it
+        if (tag === "BUTTON" || tag === "SUMMARY" || tag === "A") return; // let the focused control handle it
         e.preventDefault(); next();
       }
       return;
@@ -1031,9 +1228,11 @@
 
   $("#llFifty").addEventListener("click", useFifty);
   $("#llKarl").addEventListener("click", useKarl);
+  $("#nextBarBtn").addEventListener("click", next);
   $("#quitBtn").addEventListener("click", function () {
     if (G && !G.finished && G.answers.length && !confirm("Quit this round? Your points for it won't count.")) return;
     if (G) G.finished = true;
+    startToken++;
     stopTimer();
     location.hash = "#/";
   });
@@ -1051,16 +1250,20 @@
     if (!m) return;
     var c = b64urlDecode(m[1]);
     if (!c || !modeById(c.m) || typeof c.s !== "string" || c.s.length > 40) return;
+    var ids = Array.isArray(c.q) ? c.q.filter(function (x) { return typeof x === "string" && x.length < 24; }).slice(0, 150) : null;
     incomingChallenge = {
-      m: c.m, s: c.s, n: String(c.n || "A mate").replace(/[<>]/g, "").slice(0, 20),
+      m: c.m, s: c.s, q: ids && ids.length ? ids : null, n: String(c.n || "A mate").replace(/[<>]/g, "").slice(0, 20),
       p: Math.max(0, Math.min(1e6, +c.p || 0)), k: Math.max(0, Math.min(200, +c.k || 0)), t: Math.max(1, Math.min(200, +c.t || 1))
     };
     if (history.replaceState) history.replaceState(null, "", location.pathname + (location.hash || "#/"));
   })();
 
   updateSoundBtn();
-  rotateKarlism();
-  setInterval(rotateKarlism, 9000);
   if (!location.hash || location.hash === "#") location.hash = "#/";
   route();
+  loadManifest().then(function () {
+    if (!$("#screen-home").hidden) renderHome();
+    // warm the cache in the background so the first round starts instantly
+    setTimeout(function () { loadPools(["karl", "who"]).catch(function () {}); }, 1500);
+  }).catch(function () {});
 })();

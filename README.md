@@ -6,32 +6,37 @@ Every question, Rockbusters clue and quote was checked against the episode trans
 
 ## What's in it
 
+Thousands of questions, Rockbusters clues and quotes, all generated from the episode transcripts and then fact-checked line by line. After every answer, the game shows the **transcript lines it came from**.
+
 | Round | What it is |
 | --- | --- |
-| 🎙️ The Full Mix | 15 questions from everything |
+| 🎙️ The Full Mix | 15 from everything |
 | 📅 Daily Challenge | The same 10 questions for everyone, every day |
 | 🍊 Karl / 😂 Ricky / 🎓 Steve | 10 questions about each of them (Karl's Diary, holidays, Auntie Nora, boxing, trowels...) |
 | 🐒 Monkey News | Space chimps, monkey surgeons, the 1950s monkey jockey, Ham, Oliver... |
-| 📻 The Show | XFM 104.9, features, jingles, Guides, Podfathers |
-| 🎸 Rockbusters | 44 real Karl clues. Type the answer for full points, or ask for options |
-| 💬 Who Said It? | 84 real lines: Ricky, Steve or Karl? |
+| 📻 The Show | XFM 104.9, features, jingles, guests, the Guides, the Podfathers |
+| 🎸 Rockbusters | Karl's real clues. Type the answer for full points, or ask for options |
+| 💬 Who Said It? | Real lines: Ricky, Steve or Karl? |
 | ⚡ Quick-fire 60 | As many as you can in 60 seconds |
 
-**Totals:** 154 multiple-choice questions, 44 Rockbusters, 84 quotes.
+The exact numbers are in `data/manifest.json` and on the About page.
 
 ### Game features
 
+* **Rarely repeats**: the game remembers which questions you've seen (in your browser) and only brings them back once you've been through the whole round
+* **Transcript excerpt** after every answer, with each speaker's name in their own colour
+* **Karl's thought for the day**: one quote per day, the same for everyone, changing at midnight
 * Points for difficulty and speed, plus a streak multiplier
 * Lifelines: **50/50** and **Ask Karl** (he's right about 40% of the time)
-* 9 ranks, from *Little Round Head* to *Karl Has Won!*, and 20 badges
+* 9 ranks, from *Little Round Head* to *Karl Has Won!*, and 21 badges
 * High scores and profile saved in the browser (no accounts, no server)
 * **Challenge links**: send your score and a friend plays the exact same questions, then sees who won
 * Share to WhatsApp, X or Facebook, or save a 1080×1080 **score card** image
-* Works on phones, supports the keyboard (1–4 / A–D, Enter), sound on/off, reduced motion
+* Designed for phones (portrait and landscape), tablets and desktops: on phones the Next button sits at the bottom of the screen
 
 ## Run it locally
 
-It's plain HTML, CSS and JavaScript with no build step:
+It's plain HTML, CSS and JavaScript with no build step. It loads the questions with `fetch`, so open it through a local web server rather than double-clicking the file:
 
 ```bash
 python3 -m http.server 8000
@@ -47,13 +52,21 @@ python3 -m http.server 8000
 
 The `.nojekyll` file tells Pages to serve the files exactly as they are.
 
-## Adding questions
+## How the questions were made
 
-The questions are plain data files in `js/`:
+1. All 145 transcripts on scrimpton.com (XFM, Radio 2, the Guardian podcasts, the Podfathers, the Guides, Fame and NME) were split into 230 chunks with numbered lines.
+2. For each chunk, one AI agent read the whole thing and wrote questions, quotes and Rockbusters, citing the exact line numbers that prove each answer.
+3. A second, independent agent re-read the chunk and fact-checked every item: keep, fix (a better wrong answer, a corrected line range) or drop (unsupported, ambiguous, boring, or relying on offensive stereotypes).
+4. A build script pulled the cited lines straight from the transcript as the excerpt players see. It re-checked that every "Who said it?" quote is word-for-word from a line by that speaker, censored strong swearing and removed duplicates.
 
-* `data-questions.js`: multiple choice (`c` category, `q` question, `a` answer, `x` three wrong answers, `f` fun fact, `s` source episode, `d` difficulty 1–3)
-* `data-rockbusters.js`: `i` initials, `c` Karl's clue, `a` answer, `x` wrong options, `pun` how it works
-* `data-quotes.js`: `t` the quote, `w` who said it (`karl`, `ricky` or `steve`), `s` source
+## Data format
+
+The game loads plain JSON files from `data/`:
+
+* `q-karl.json`, `q-ricky.json`, `q-steve.json`, `q-monkey.json`, `q-show.json`: multiple choice: `id`, `q` question, `a` answer, `x` three wrong answers, `f` fun fact, `s` source episode, `d` difficulty 1–3, `ex` transcript excerpt as `[speaker, text]` pairs
+* `rock.json`: `i` initials, `c` Karl's clue, `a` answer, `x` wrong options, `pun` how it works, `s`, `ex`
+* `quotes.json`: `t` the quote, `w` who said it (`karl`, `ricky` or `steve`), `s`, `ex`, `hl` (which excerpt line is the quote)
+* `manifest.json`: counts, a cache-busting `version`, and the list of Karl quotes used for the thought of the day
 
 ## Credits
 
