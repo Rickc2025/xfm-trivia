@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Chimpanzee That! The Ricky, Steve &amp; Karl Trivia Game</title>
+  <meta name="description" content="A fan-made trivia game about Ricky Gervais, Stephen Merchant and Karl Pilkington: XFM, the podcasts, the Guides, Monkey News, Rockbusters and Karl's Diary. Questions checked against the real transcripts.">
+  <meta name="theme-color" content="#0f1226">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Chimpanzee That! The Ricky, Steve & Karl Trivia Game">
+  <meta property="og:description" content="Monkey News, Rockbusters, Karl's Diary and more. How well do you know the little round head? Play and challenge your mates.">
+  <meta property="og:image" content="https://rickc2025.github.io/xfm-trivia/img/og.jpg">
+  <meta property="og:url" content="https://rickc2025.github.io/xfm-trivia/">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="img/logo.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="topbar">
+    <a class="brand" href="#/" aria-label="Chimpanzee That! home">
+      <img src="img/logo.svg" alt="" width="40" height="40">
+      <span class="brand-text">Chimpanzee <em>That!</em></span>
+    </a>
+    <div class="onair" aria-hidden="true"><span class="dot"></span>ON AIR</div>
+    <nav class="topnav" aria-label="Main">
+      <a href="#/scores" title="High scores">🏆<span class="lbl"> Scores</span></a>
+      <a href="#/profile" class="me-link"><span class="me-points" id="navPoints">0</span> pts</a>
+      <button class="icon-btn" id="soundBtn" type="button" aria-pressed="true" title="Sound on/off">🔊</button>
+    </nav>
+  </header>
+
+  <main id="main" tabindex="-1">
+
+    <!-- ============ HOME ============ -->
+    <section class="screen" id="screen-home" data-screen="home">
+      <div class="challenge-banner" id="challengeBanner" hidden></div>
+
+      <div class="hero">
+        <div class="hero-copy">
+          <p class="kicker">XFM 104.9 · the podcasts · the Guides</p>
+          <h1>How well do you know the <span class="orange">little round head</span>?</h1>
+          <p class="lede">Trivia about Ricky, Steve and Karl, written from the real transcripts of the XFM shows and podcasts. Score points, keep a streak going, unlock badges and send your score to your mates.</p>
+          <div class="hero-actions">
+            <button class="btn btn-primary btn-lg" data-start="mix" type="button">▶ Play the full mix</button>
+            <button class="btn btn-ghost btn-lg" data-start="daily" type="button" id="dailyBtn">📅 Daily challenge</button>
+          </div>
+          <div class="player-row">
+            <label for="playerName">Your name</label>
+            <input id="playerName" maxlength="20" placeholder="e.g. Dickie Anderson" autocomplete="nickname">
+            <span class="rank-chip" id="rankChip">Little Round Head</span>
+          </div>
+        </div>
+        <div class="trio" aria-label="The trio">
+          <button class="face face-ricky" data-start="ricky" type="button">
+            <img src="img/ricky.jpg" alt="Ricky Gervais" loading="eager">
+            <span>Ricky</span>
+          </button>
+          <button class="face face-karl" data-start="karl" type="button">
+            <img src="img/karl.jpg" alt="Karl Pilkington" loading="eager">
+            <span>Karl</span>
+          </button>
+          <button class="face face-steve" data-start="steve" type="button">
+            <img src="img/steve.jpg" alt="Stephen Merchant" loading="eager">
+            <span>Steve</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="karlism" aria-live="polite">
+        <div class="karlism-label">Karl's thought for the day</div>
+        <blockquote id="karlism">"Well, you don't see, like, an old man having a Twix."</blockquote>
+        <div class="karlism-src" id="karlismSrc"></div>
+      </div>
+
+      <h2 class="section-title">Pick a round</h2>
+      <div class="modes" id="modes"></div>
+
+      <div class="stats-strip" id="statsStrip"></div>
+    </section>
+
+    <!-- ============ PLAY ============ -->
+    <section class="screen" id="screen-play" data-screen="play" hidden>
+      <div class="play-head">
+        <button class="btn btn-small btn-ghost" id="quitBtn" type="button">✕ Quit</button>
+        <div class="play-title" id="playTitle">Round</div>
+        <div class="score-box"><span id="scoreNow">0</span><small>pts</small></div>
+      </div>
+      <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="play-meta">
+        <span id="qCounter">1 / 10</span>
+        <span class="streak" id="streak" hidden>🔥 <b id="streakNum">0</b> streak</span>
+        <span class="timer" id="timerText">20s</span>
+      </div>
+      <div class="timer-track"><div class="timer-bar" id="timerBar"></div></div>
+
+      <div class="card q-card" id="qCard"></div>
+
+      <div class="lifelines" id="lifelines">
+        <button class="btn btn-small lifeline" id="llFifty" type="button" title="Remove two wrong answers (half points)">✂️ 50/50</button>
+        <button class="btn btn-small lifeline" id="llKarl" type="button" title="Ask Karl. He's right about as often as Monkey News is true.">🍊 Ask Karl</button>
+      </div>
+
+      <div class="feedback" id="feedback" aria-live="assertive" hidden></div>
+    </section>
+
+    <!-- ============ RESULTS ============ -->
+    <section class="screen" id="screen-results" data-screen="results" hidden>
+      <div class="card results-card" id="resultsCard"></div>
+    </section>
+
+    <!-- ============ SCORES ============ -->
+    <section class="screen" id="screen-scores" data-screen="scores" hidden>
+      <h1 class="page-title">High scores</h1>
+      <p class="muted">Your best games on this device. To compete with friends, finish a round and send them your <b>challenge link</b>: they get the exact same questions.</p>
+      <div class="filters" id="scoreFilters"></div>
+      <div class="card"><ol class="board" id="board"></ol></div>
+      <h2 class="section-title">Challenges you've played</h2>
+      <div class="card"><ul class="board" id="duels"></ul></div>
+    </section>
+
+    <!-- ============ PROFILE ============ -->
+    <section class="screen" id="screen-profile" data-screen="profile" hidden>
+      <h1 class="page-title">Your profile</h1>
+      <div class="card profile-card" id="profileCard"></div>
+      <h2 class="section-title">Badges</h2>
+      <div class="badges" id="badges"></div>
+    </section>
+
+    <!-- ============ ABOUT ============ -->
+    <section class="screen" id="screen-about" data-screen="about" hidden>
+      <h1 class="page-title">About this game</h1>
+      <div class="card prose">
+        <p><b>Chimpanzee That!</b> is an unofficial fan-made trivia game about the radio shows, podcasts and audiobooks of <b>Ricky Gervais</b>, <b>Stephen Merchant</b> and <b>Karl Pilkington</b>.</p>
+        <p>Every question, Rockbusters clue and quote was taken from or checked against episode transcripts. The questions cover XFM (2001 to 2005), the 2005 BBC Radio 2 specials, the Guardian podcasts and Podfathers (2005 to 2006), the Fame and NME specials, and the Ricky Gervais Guides (2008 to 2011). Each answer tells you which episode it came from, so you can go and listen to the bit.</p>
+        <h3>Where the material comes from</h3>
+        <ul>
+          <li><a href="https://www.therickygervaisshow.com/xfm-vault" target="_blank" rel="noopener">The Ricky Gervais Show: XFM Vault</a> (official episode transcripts)</li>
+          <li><a href="https://scrimpton.com" target="_blank" rel="noopener">Scrimpton.com</a>, the community-transcribed archive. Its name comes from a word Ricky made up in the Guide to the Future, and that's one of the questions.</li>
+        </ul>
+        <h3>Photo credits</h3>
+        <ul id="photoCredits"></ul>
+        <h3>Scores and privacy</h3>
+        <p>There are no accounts and nothing is sent to a server. Your name, points and badges are saved in your browser's local storage on this device only. A challenge link carries the round, the question seed, your name and your score, so a friend can play the same questions.</p>
+        <p class="muted small">Not affiliated with or endorsed by Ricky Gervais, Stephen Merchant, Karl Pilkington, XFM/Radio X, the BBC or Guardian Media Group. All quotes belong to their speakers and are used here for fan commentary and trivia. If you're a rights holder and want something changed, open an issue on the GitHub repository.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>Made by a fan, for fans. "Play a record!"</span>
+    <a href="#/about">About &amp; credits</a>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <canvas id="confetti" aria-hidden="true"></canvas>
+
+  <script src="js/data-questions.js"></script>
+  <script src="js/data-rockbusters.js"></script>
+  <script src="js/data-quotes.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

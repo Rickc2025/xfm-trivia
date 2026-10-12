@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="An orange wearing studio headphones">
+  <defs>
+    <radialGradient id="peel" cx="38%" cy="32%" r="70%">
+      <stop offset="0" stop-color="#ffc06b"/>
+      <stop offset=".55" stop-color="#ff8a1f"/>
+      <stop offset="1" stop-color="#d9650a"/>
+    </radialGradient>
+  </defs>
+  <!-- headphone band -->
+  <path d="M10 33 C10 14 54 14 54 33" fill="none" stroke="#1b2044" stroke-width="5" stroke-linecap="round"/>
+  <!-- the little round head -->
+  <circle cx="32" cy="36" r="20" fill="url(#peel)"/>
+  <g fill="#d9650a" opacity=".45">
+    <circle cx="24" cy="44" r="1"/><circle cx="40" cy="45" r="1"/><circle cx="44" cy="34" r="1"/><circle cx="21" cy="31" r="1"/><circle cx="33" cy="50" r="1"/>
+  </g>
+  <!-- leaf -->
+  <path d="M32 16 C35 10 41 9 44 11 C41 15 36 17 32 16 Z" fill="#34d399"/>
+  <!-- deadpan face -->
+  <circle cx="26" cy="35" r="2.2" fill="#2a1600"/>
+  <circle cx="38" cy="35" r="2.2" fill="#2a1600"/>
+  <path d="M26.5 43.5 H37.5" stroke="#2a1600" stroke-width="2.2" stroke-linecap="round"/>
+  <!-- ear cups -->
+  <rect x="5" y="29" width="9" height="14" rx="4" fill="#ff4d5e"/>
+  <rect x="50" y="29" width="9" height="14" rx="4" fill="#ff4d5e"/>
+</svg>
