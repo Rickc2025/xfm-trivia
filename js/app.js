@@ -263,9 +263,13 @@
   }
   var cycleNotice = false;
   /* pick n unseen items from a pool; when it's nearly used up, start a fresh cycle */
-  function pickFresh(name, n, rnd) {
+  function pickFresh(name, n, rnd, noCycle) {
     var pool = POOLS[name] || [];
     var unseen = pool.filter(function (x) { return !seenSet[x.id]; });
+    if (unseen.length < n && noCycle) {
+      var extra = shuffle(pool.filter(function (x) { return seenSet[x.id]; }), rnd);
+      return shuffle(unseen, rnd).concat(extra).slice(0, n);
+    }
     if (unseen.length < n && pool.length > n) {
       var picked = shuffle(unseen, rnd);
       forgetSeen(pool.map(function (x) { return x.id; }));
@@ -351,7 +355,8 @@
   function whoItem(w) {
     return { type: "who", id: w.id, cat: "who", d: 1, quote: w.t, answer: w.w, src: w.s, ex: w.ex, hl: w.hl };
   }
-  function makeItem(poolName, raw, rnd, typedRock) {
+  function makeItem(poolName, raw, seed, typedRock) {
+    var rnd = mulberry32(hashStr("opts:" + seed + ":" + raw.id));
     if (poolName === "rock") return rockItem(raw, rnd, typedRock);
     if (poolName === "who") return whoItem(raw);
     return mcqItem(raw, poolName, rnd);
@@ -372,8 +377,8 @@
     var items = [];
     function take(name, n) {
       var pool = POOLS[name] || [];
-      var raw = fresh ? pickFresh(name, n, rnd) : shuffle(pool, rnd).slice(0, n);
-      return raw.map(function (x) { return makeItem(name, x, rnd, mode.kind === "rock"); });
+      var raw = fresh ? pickFresh(name, n, rnd, mode.kind === "quick") : shuffle(pool, rnd).slice(0, n);
+      return raw.map(function (x) { return makeItem(name, x, seed, mode.kind === "rock"); });
     }
     if (mode.kind === "mcq" || mode.kind === "rock" || mode.kind === "who") {
       items = take(mode.pools[0], mode.n);
@@ -390,13 +395,12 @@
 
   /* rebuild a friend's exact round from the question ids in their challenge link */
   function itemsFromIds(mode, ids, seed) {
-    var rnd = mulberry32(hashStr("challenge:" + seed));
     var byId = {};
     mode.pools.forEach(function (p) { (POOLS[p] || []).forEach(function (x) { byId[x.id] = [p, x]; }); });
     var items = [];
     ids.forEach(function (id) {
       var hit = byId[id];
-      if (hit) items.push(makeItem(hit[0], hit[1], rnd, mode.kind === "rock"));
+      if (hit) items.push(makeItem(hit[0], hit[1], seed, mode.kind === "rock"));
     });
     return items;
   }
@@ -660,7 +664,7 @@
         if (k === item.answer) b.classList.add("correct");
         else if (k === choice) b.classList.add("wrong");
       });
-    } else if (item.type === "rock" && meta.typed) {
+    } else if (item.type === "rock" && !$(".opt", card)) {
       var inp = $("#rockInput"); if (inp) { inp.disabled = true; inp.style.borderColor = ok ? "var(--green)" : "var(--red)"; inp.blur(); }
       $$(".rock-form button, #rockOptions", card).forEach(function (b) { b.disabled = true; });
     } else {
@@ -821,7 +825,8 @@
     P.modes[mode.id] = (P.modes[mode.id] || 0) + 1;
     var prevBest = P.best[mode.id] || 0;
     if (G.score > prevBest) P.best[mode.id] = G.score;
-    if (mode.daily && !hadDailyToday) P.dailies[todayKey()] = { p: G.score, k: G.correct, t: total };
+    var isTodaysDaily = mode.daily && (!G.challenge || G.seed === "daily-" + todayKey());
+    if (isTodaysDaily && !hadDailyToday) P.dailies[todayKey()] = { p: G.score, k: G.correct, t: total };
 
     P.scores.push({ n: playerName(), m: mode.id, p: G.score, k: G.correct, t: total, d: Date.now() });
     P.scores.sort(function (a, b) { return b.p - a.p; });
@@ -851,7 +856,7 @@
       P.duels.unshift(duel); P.duels = P.duels.slice(0, 30);
     }
     saveProfile();
-    G.result = { total: total, pct: pct, newBadges: newBadges, prevBest: prevBest, duel: duel, dailyRepeat: mode.daily && hadDailyToday };
+    G.result = { total: total, pct: pct, newBadges: newBadges, prevBest: prevBest, duel: duel, dailyRepeat: isTodaysDaily && hadDailyToday };
     location.hash = "#/results";
   }
 
@@ -966,6 +971,9 @@
     });
   }
   function makeScoreCard() {
+    var R = G;
+    if (!R || !R.result) return;
+    var url = challengeUrl(), text = shareText();
     var S = 1080, cv = document.createElement("canvas"); cv.width = S; cv.height = S;
     var ctx = cv.getContext("2d");
     var fontsReady = document.fonts && document.fonts.load ? Promise.all([document.fonts.load("80px Bungee"), document.fonts.load("900 40px Nunito")]) : Promise.resolve();
@@ -981,11 +989,11 @@
       ctx.fillStyle = "#a9aed0"; ctx.font = "800 34px Nunito, sans-serif";
       ctx.fillText("The Ricky, Steve & Karl Trivia Game", S / 2, 196);
       ctx.fillStyle = "#f6f2ea"; ctx.font = "900 44px Nunito, sans-serif";
-      ctx.fillText(playerName() + " · " + G.mode.title, S / 2, 300);
+      ctx.fillText(playerName() + " · " + R.mode.title, S / 2, 300);
       ctx.fillStyle = "#ffd23f"; ctx.font = "200px Bungee, Impact, sans-serif";
-      ctx.fillText(fmt(G.score), S / 2, 500);
+      ctx.fillText(fmt(R.score), S / 2, 500);
       ctx.fillStyle = "#f6f2ea"; ctx.font = "900 50px Nunito, sans-serif";
-      ctx.fillText(G.correct + " / " + G.result.total + " correct · " + rankFor(P.points).name, S / 2, 580);
+      ctx.fillText(R.correct + " / " + R.result.total + " correct · " + rankFor(P.points).name, S / 2, 580);
       var r = 120, y = 790, xs = [S / 2 - 290, S / 2, S / 2 + 290], cols = ["#ff5d73", "#ff8a1f", "#4dabf7"];
       imgs.forEach(function (im, i) {
         ctx.save(); ctx.beginPath(); ctx.arc(xs[i], y, r, 0, Math.PI * 2); ctx.closePath(); ctx.clip();
@@ -1003,7 +1011,7 @@
         if (!blob) { toast("Couldn't make the image on this browser."); return; }
         var file = typeof File === "function" ? new File([blob], "chimpanzee-that-score.png", { type: "image/png" }) : null;
         if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-          navigator.share({ files: [file], title: "Chimpanzee That!", text: shareText() + " " + challengeUrl() }).catch(function () { download(blob); });
+          navigator.share({ files: [file], title: "Chimpanzee That!", text: text + " " + url }).catch(function () { download(blob); });
         } else download(blob);
       }, "image/png");
     });
@@ -1061,9 +1069,11 @@
     { t: "Because... bricks don't fall in wars.", s: "XFM S1E21 · 20 Apr 2002" },
     { t: "I was a latecomer to pasta.", s: "The Ricky Gervais Guide to The English · 2009" }
   ];
+  var manifestFailed = false;
   function renderKarlism() {
     var list = (MANIFEST && MANIFEST.karlisms && MANIFEST.karlisms.length) ? MANIFEST.karlisms : null;
-    if (!list) { $("#karlism").textContent = ""; $("#karlismSrc").textContent = ""; list = FALLBACK_KARLISMS; }
+    if (!list && !manifestFailed) { $("#karlism").textContent = "…"; $("#karlismSrc").textContent = ""; return; }
+    if (!list) list = FALLBACK_KARLISMS;
     var k = list[hashStr("karlism:" + dayNumber()) % list.length];
     var d = new Date();
     $("#karlismLabel").textContent = "Karl's thought for " + d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
@@ -1081,6 +1091,7 @@
       '<button class="btn btn-small btn-ghost" id="dismissBtn" type="button">Not now</button>';
     b.hidden = false;
     $("#acceptBtn").addEventListener("click", function () {
+      incomingChallenge = null;
       pendingStart = { mode: c.m, seed: c.s, ids: c.q, challenge: c };
       location.hash = "#/play/" + c.m; route();
     });
@@ -1202,6 +1213,7 @@
 
   document.addEventListener("keydown", function (e) {
     if ($("#screen-play").hidden || !G || G.finished) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     var tag = (e.target && e.target.tagName) || "";
     if (tag === "INPUT" || tag === "TEXTAREA") return;
     var item = currentItem();
@@ -1265,5 +1277,8 @@
     if (!$("#screen-home").hidden) renderHome();
     // warm the cache in the background so the first round starts instantly
     setTimeout(function () { loadPools(["karl", "who"]).catch(function () {}); }, 1500);
-  }).catch(function () {});
+  }).catch(function () {
+    manifestFailed = true;
+    if (!$("#screen-home").hidden) renderKarlism();
+  });
 })();
