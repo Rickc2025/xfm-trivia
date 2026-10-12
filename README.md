@@ -43,7 +43,7 @@ python3 -m http.server 8000
 1. On GitHub, open the repository's **Settings → Pages**.
 2. Under **Build and deployment**, set **Source** to **Deploy from a branch**.
 3. Pick the branch that holds the site (`main` once this is merged, or `claude/ricky-gervais-trivia-site-3096j1` to publish it straight away) and the **/ (root)** folder, then **Save**.
-4. After a minute or two it's live at **https://rickc2025.github.io/xfm-trivia/**.
+4. After a minute or two it's live. Your account's Pages domain is set to `sonexagamestudios.com`, so the game will be at **https://sonexagamestudios.com/xfm-trivia/** (`rickc2025.github.io/xfm-trivia/` redirects there).
 
 The `.nojekyll` file tells Pages to serve the files exactly as they are.
 
