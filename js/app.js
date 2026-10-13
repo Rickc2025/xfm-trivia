@@ -87,17 +87,14 @@
     ricky: { label: "Ricky Gervais", img: "img/ricky-face.jpg", accent: "#ff5d73" },
     steve: { label: "Stephen Merchant", img: "img/steve-face.jpg", accent: "#4dabf7" },
     monkey: { label: "Monkey News", img: "img/ham.jpg", emoji: "🐒", accent: "#ffd23f" },
+    educating: { label: "Educating Ricky", emoji: "📚", accent: "#a3e635" },
     show: { label: "The Show", emoji: "📻", accent: "#b48cff" },
     rock: { label: "Rockbusters", emoji: "🎸", accent: "#ff6fae" },
     who: { label: "Who Said It?", emoji: "💬", accent: "#34d399" }
   };
 
-  /* pools = the data files. Each mode lists the pools it needs. */
-  var POOL_FILES = {
-    karl: "data/q-karl.json", ricky: "data/q-ricky.json", steve: "data/q-steve.json",
-    monkey: "data/q-monkey.json", show: "data/q-show.json", rock: "data/rock.json", who: "data/quotes.json"
-  };
-  var MCQ_POOLS = ["karl", "ricky", "steve", "monkey", "show"];
+  /* pools = the folders in data/. Each mode lists the pools it needs. */
+  var MCQ_POOLS = ["karl", "ricky", "steve", "monkey", "educating", "show"];
   var ALL_POOLS = MCQ_POOLS.concat(["rock", "who"]);
 
   var MODES = [
@@ -107,6 +104,7 @@
     { id: "ricky", title: "Ricky Gervais", blurb: "Boxing, salamanders, scratch cards and \"Play a record!\"", kind: "mcq", cat: "ricky", n: 10, pools: ["ricky"] },
     { id: "steve", title: "Stephen Merchant", blurb: "Six foot seven of Bristol's finest. Trowels, goggles, Crouchy.", kind: "mcq", cat: "steve", n: 10, pools: ["steve"] },
     { id: "monkey", title: "Monkey News", blurb: "Oh, chimpanzee that! Space chimps, monkey surgeons and a jockey.", kind: "mcq", cat: "monkey", n: 10, pools: ["monkey"] },
+    { id: "educating", title: "Educating Ricky", blurb: "Karl teaches Ricky what he's read this week. Alien gives man a beard, the hairy Chinese kid...", kind: "mcq", cat: "educating", n: 10, pools: ["educating"] },
     { id: "show", title: "The Show", blurb: "XFM 104.9, the podcasts, the Guides, the features and the jingles.", kind: "mcq", cat: "show", n: 10, pools: ["show"] },
     { id: "rock", title: "Rockbusters", blurb: "Karl's \"craptic\" clues. Type the band or artist from the initials.", kind: "rock", n: 8, pools: ["rock"] },
     { id: "who", title: "Who Said It?", blurb: "Ricky, Steve or Karl? Real lines from the shows.", kind: "who", n: 12, pools: ["who"] },
@@ -140,6 +138,7 @@
     { id: "ricky", icon: "😂", name: "Play a Record!", desc: "Score 8+ out of 10 in the Ricky round." },
     { id: "steve", icon: "🎓", name: "The Professor", desc: "Score 8+ out of 10 in the Steve round." },
     { id: "monkey", icon: "🐒", name: "Chimpanzee That!", desc: "Score 8+ out of 10 in Monkey News." },
+    { id: "educating", icon: "📚", name: "Alien Gives Man a Beard", desc: "Score 8+ out of 10 in Educating Ricky." },
     { id: "show", icon: "📻", name: "104.9", desc: "Score 8+ out of 10 in The Show." },
     { id: "rock", icon: "🎸", name: "Wet Knee Houston", desc: "Type 5+ Rockbusters answers right in one round (no options)." },
     { id: "who", icon: "💬", name: "Just a Bit Livid", desc: "Get 10+ right in Who Said It?" },
@@ -186,14 +185,18 @@
       by: "Raph_PH", license: "CC BY 4.0", licenseUrl: "https://creativecommons.org/licenses/by/4.0/", note: "cropped and resized" },
     { what: "Karl Pilkington", title: "Karl Pilkington 2008 cropped.jpg", url: "https://commons.wikimedia.org/wiki/File:Karl_Pilkington_2008_cropped.jpg",
       by: "Rick Walker (derivative work: RanZag)", license: "CC BY 2.0", licenseUrl: "https://creativecommons.org/licenses/by/2.0/", note: "cropped and resized" },
-    { what: "Ham the Astrochimp (Monkey News round)", title: "Ham the chimp (cropped).jpg", url: "https://commons.wikimedia.org/wiki/File:Ham_the_chimp_(cropped).jpg",
+    { what: "Ham the chimp", title: "Ham the chimp (cropped).jpg", url: "https://commons.wikimedia.org/wiki/File:Ham_the_chimp_(cropped).jpg",
       by: "NASA", license: "Public domain", note: "the real 1961 space chimp from the \"final\" Monkey News" }
   ];
 
   /* ---------------------------------------------------------------- data loading */
+  /* Each pool is split into shards of about 150 (data/karl/0.json, data/karl/1.json...), so a round
+     only downloads what it needs. An item's id says which pool it's in (first letter) and which shard. */
   var MANIFEST = null;
-  var POOLS = {};
+  var SHARDS = {};
   var loading = {};
+  var POOL_OF = { k: "karl", r: "ricky", s: "steve", m: "monkey", e: "educating", h: "show", b: "rock", w: "who" };
+  var ID_RE = /^[krsmehbw][0-9a-f]{8}$/;
   function getJSON(url) {
     var v = MANIFEST && MANIFEST.version ? "?v=" + MANIFEST.version : "";
     return fetch(url + v).then(function (r) {
@@ -210,17 +213,19 @@
     }
     return loading.manifest;
   }
-  function loadPool(name) {
-    if (!loading[name]) {
-      loading[name] = loadManifest().catch(function () {}).then(function () { return getJSON(POOL_FILES[name]); })
-        .then(function (arr) { POOLS[name] = arr; return arr; })
-        .catch(function (e) { delete loading[name]; throw e; });
+  function shardCount(pool) { return MANIFEST && MANIFEST.shards ? (MANIFEST.shards[pool] || 0) : 0; }
+  function poolOfId(id) { return ID_RE.test(id) ? POOL_OF[id.charAt(0)] : null; }
+  function shardOfId(id, n) { return parseInt(id.substr(1, 4), 16) % n; }
+  function loadShard(pool, k) {
+    var key = pool + "/" + k;
+    if (!loading[key]) {
+      loading[key] = getJSON("data/" + key + ".json")
+        .then(function (arr) { SHARDS[key] = Array.isArray(arr) ? arr : []; return SHARDS[key]; })
+        .catch(function (e) { delete loading[key]; throw e; });
     }
-    return loading[name];
+    return loading[key];
   }
-  function loadPools(names) { return Promise.all(names.map(loadPool)); }
   function poolCount(name) {
-    if (POOLS[name]) return POOLS[name].length;
     return MANIFEST && MANIFEST.counts ? (MANIFEST.counts[name] || 0) : 0;
   }
   function modeCount(m) {
@@ -262,22 +267,67 @@
     saveSeen();
   }
   var cycleNotice = false;
-  /* pick n unseen items from a pool; when it's nearly used up, start a fresh cycle */
-  function pickFresh(name, n, rnd, noCycle) {
-    var pool = POOLS[name] || [];
-    var unseen = pool.filter(function (x) { return !seenSet[x.id]; });
-    if (unseen.length < n && noCycle) {
-      var extra = shuffle(pool.filter(function (x) { return seenSet[x.id]; }), rnd);
-      return shuffle(unseen, rnd).concat(extra).slice(0, n);
+
+  /* Each player works through a pool's shards in their own random order. When a shard has no unseen
+     items left, they move to the next one. After the last shard, every shard is refreshed (its items
+     count as unseen again) the next time they reach it. */
+  var deck = store.get("deck", {});
+  if (!deck || typeof deck !== "object" || Array.isArray(deck)) deck = {};
+  function saveDeck() { store.set("deck", deck); }
+  function deckFor(pool) {
+    var n = shardCount(pool), d = deck[pool];
+    if (!d || d.n !== n || !Array.isArray(d.order) || d.order.length !== n || !Array.isArray(d.refresh)) {
+      var order = [];
+      for (var i = 0; i < n; i++) order.push(i);
+      d = deck[pool] = { n: n, order: shuffle(order, Math.random), at: 0, refresh: [] };
     }
-    if (unseen.length < n && pool.length > n) {
-      var picked = shuffle(unseen, rnd);
-      forgetSeen(pool.map(function (x) { return x.id; }));
-      cycleNotice = true;
-      var rest = shuffle(pool.filter(function (x) { return picked.indexOf(x) === -1; }), rnd);
-      return picked.concat(rest).slice(0, n);
+    if (!(d.at >= 0 && d.at < n)) d.at = 0;
+    return d;
+  }
+  function uniqueById(arr) {
+    var have = {};
+    return arr.filter(function (x) { if (have[x.id]) return false; have[x.id] = 1; return true; });
+  }
+  /* pick n unseen items from a pool (quick-fire tops up with seen ones rather than starting a new cycle) */
+  function pickFresh(pool, n, rnd, noCycle) {
+    var d = deckFor(pool), got = [], spare = [], steps = 0;
+    if (!d.n) return Promise.resolve([]);
+    function step() {
+      var k = d.order[d.at];
+      return loadShard(pool, k).then(function (items) {
+        var r = d.refresh.indexOf(k);
+        if (r !== -1) {
+          d.refresh.splice(r, 1);
+          forgetSeen(items.map(function (x) { return x.id; }));
+          if (!noCycle) cycleNotice = true;
+        }
+        var have = {};
+        got.forEach(function (x) { have[x.id] = 1; });
+        got = got.concat(shuffle(items.filter(function (x) { return !seenSet[x.id] && !have[x.id]; }), rnd).slice(0, n - got.length));
+        if (got.length >= n) { saveDeck(); return got; }
+        spare = spare.concat(items.filter(function (x) { return seenSet[x.id]; }));
+        d.at++;
+        if (d.at >= d.n) { d.at = 0; d.refresh = d.order.slice(); }
+        steps++;
+        if (steps > d.n || (noCycle && steps >= 2)) {
+          saveDeck();
+          return uniqueById(got.concat(shuffle(spare, rnd))).slice(0, n);
+        }
+        return step();
+      });
     }
-    return shuffle(unseen, rnd).slice(0, n);
+    return step();
+  }
+  /* seeded rounds (the daily, old challenge links) have to come out the same for everyone */
+  function pickSeeded(pool, n, rnd) {
+    var c = shardCount(pool);
+    if (!c) return Promise.resolve([]);
+    return loadShard(pool, Math.floor(rnd() * c)).then(function (items) { return shuffle(items, rnd).slice(0, n); });
+  }
+  /* load the next shard of a pool in the background so the first round starts quickly */
+  function warmPool(pool) {
+    var d = deckFor(pool);
+    if (d.n) loadShard(pool, d.order[d.at]).catch(function () {});
   }
 
   /* ---------------------------------------------------------------- sound */
@@ -363,9 +413,9 @@
   }
 
   /* weights for the mixed rounds: plenty of Karl, a bit of everything else */
-  var MIX_WEIGHTS = [["karl", 34], ["ricky", 13], ["steve", 12], ["monkey", 9], ["show", 12], ["rock", 8], ["who", 12]];
+  var MIX_WEIGHTS = [["karl", 32], ["ricky", 12], ["steve", 11], ["monkey", 9], ["educating", 6], ["show", 11], ["rock", 7], ["who", 12]];
   function weightedPool(rnd) {
-    var avail = MIX_WEIGHTS.filter(function (w) { return (POOLS[w[0]] || []).length; });
+    var avail = MIX_WEIGHTS.filter(function (w) { return poolCount(w[0]) && shardCount(w[0]); });
     var tot = avail.reduce(function (s, w) { return s + w[1]; }, 0), r = rnd() * tot;
     for (var i = 0; i < avail.length; i++) { r -= avail[i][1]; if (r <= 0) return avail[i][0]; }
     return avail[avail.length - 1][0];
@@ -374,35 +424,42 @@
   /* fresh = avoid already-seen questions (normal rounds); seeded rounds must be identical for everyone */
   function buildItems(mode, seed, fresh) {
     var rnd = mulberry32(hashStr(mode.id + ":" + seed));
-    var items = [];
     function take(name, n) {
-      var pool = POOLS[name] || [];
-      var raw = fresh ? pickFresh(name, n, rnd, mode.kind === "quick") : shuffle(pool, rnd).slice(0, n);
-      return raw.map(function (x) { return makeItem(name, x, seed, mode.kind === "rock"); });
+      var prnd = mulberry32(hashStr(mode.id + ":" + seed + ":" + name));
+      return (fresh ? pickFresh(name, n, prnd, mode.kind === "quick") : pickSeeded(name, n, prnd)).then(function (raw) {
+        return raw.map(function (x) { return makeItem(name, x, seed, mode.kind === "rock"); });
+      });
     }
     if (mode.kind === "mcq" || mode.kind === "rock" || mode.kind === "who") {
-      items = take(mode.pools[0], mode.n);
-      if (mode.kind === "mcq") items.sort(function (a, b) { return a.d - b.d; });
-    } else {
-      var count = mode.kind === "quick" ? 120 : mode.n;
-      var want = {};
-      for (var i = 0; i < count; i++) { var p = weightedPool(rnd); want[p] = (want[p] || 0) + 1; }
-      Object.keys(want).sort().forEach(function (p) { items = items.concat(take(p, want[p])); });
-      items = shuffle(items, rnd);
+      return take(mode.pools[0], mode.n).then(function (items) {
+        if (mode.kind === "mcq") items.sort(function (a, b) { return a.d - b.d; });
+        return items;
+      });
     }
-    return items;
+    var count = mode.kind === "quick" ? 120 : mode.n;
+    var want = {};
+    for (var i = 0; i < count; i++) { var p = weightedPool(rnd); want[p] = (want[p] || 0) + 1; }
+    var names = Object.keys(want).sort();
+    return Promise.all(names.map(function (p) { return take(p, want[p]); })).then(function (lists) {
+      return shuffle([].concat.apply([], lists), rnd);
+    });
   }
 
   /* rebuild a friend's exact round from the question ids in their challenge link */
   function itemsFromIds(mode, ids, seed) {
-    var byId = {};
-    mode.pools.forEach(function (p) { (POOLS[p] || []).forEach(function (x) { byId[x.id] = [p, x]; }); });
-    var items = [];
+    var need = {};
     ids.forEach(function (id) {
-      var hit = byId[id];
-      if (hit) items.push(makeItem(hit[0], hit[1], seed, mode.kind === "rock"));
+      var p = poolOfId(id), n = p && mode.pools.indexOf(p) !== -1 ? shardCount(p) : 0;
+      if (n) need[p + "/" + shardOfId(id, n)] = [p, shardOfId(id, n)];
     });
-    return items;
+    var keys = Object.keys(need);
+    return Promise.all(keys.map(function (k) { return loadShard(need[k][0], need[k][1]); })).then(function () {
+      var byId = {};
+      keys.forEach(function (k) { (SHARDS[k] || []).forEach(function (x) { byId[x.id] = [need[k][0], x]; }); });
+      return ids.filter(function (id) { return byId[id]; }).map(function (id) {
+        return makeItem(byId[id][0], byId[id][1], seed, mode.kind === "rock");
+      });
+    });
   }
 
   /* ---------------------------------------------------------------- game state */
@@ -412,6 +469,82 @@
   var incomingChallenge = null;
   var startToken = 0;
   var startingMode = null; // a round whose questions are still loading
+
+  /* ---------------------------------------------------------------- title screen + jingles */
+  // a round with a jingle plays it on its title screen (drop the audio file at this path)
+  var JINGLES = { monkey: "audio/monkey-news.wav" };
+  var INTRO_FX = {
+    mix: ["📼", "🎙️", "🍊", "🐒", "🎸"], daily: ["📅", "⭐", "🍊", "📼"], karl: ["🍊", "📔", "🥚", "🐝"],
+    ricky: ["😂", "🥊", "🍺", "🎤"], steve: ["🎓", "📏", "🥽", "🎧"], monkey: ["🐒", "🍌", "🚀", "🐵"],
+    educating: ["📚", "👽", "🧔", "✏️"], show: ["📻", "🎧", "🎙️", "📼"], rock: ["🎸", "🎤", "🎵", "🥁"],
+    who: ["💬", "🗯️", "❓", "🍊"], quick: ["⚡", "⏱️", "🔥", "⚡"]
+  };
+  var jingle = null;
+  function stopJingle() {
+    if (jingle) { try { jingle.pause(); } catch (e) {} jingle = null; }
+  }
+  // called straight from the click, so browsers allow the sound
+  function playJingle(modeId) {
+    stopJingle();
+    var src = JINGLES[modeId];
+    if (!src || !soundOn || typeof Audio === "undefined") return;
+    try {
+      var a = new Audio(src);
+      jingle = a;
+      var p = a.play();
+      if (p && p.catch) p.catch(function () { if (jingle === a) jingle = null; });
+      a.addEventListener("error", function () { if (jingle === a) jingle = null; });
+    } catch (e) { jingle = null; }
+  }
+  function hideIntro() { $("#intro").hidden = true; document.body.classList.remove("intro-on"); }
+  /* show the round's title screen while the questions load; resolves when it's time to play */
+  function runIntro(mode, itemsReady, token) {
+    var el = $("#intro"), c = CATS[mode.cat || mode.kind] || {};
+    var accent = mode.accent || c.accent || "#ff8a1f";
+    var icon = c.img ? '<img src="' + c.img + '" alt="">' : esc(mode.emoji || c.emoji || "🎙️");
+    var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.style.setProperty("--accent", accent);
+    $(".intro-icon", el).innerHTML = icon;
+    $(".intro-title", el).innerHTML = mode.title.split(" ").map(function (w, i) {
+      return '<span style="animation-delay:' + (0.35 + i * 0.12).toFixed(2) + 's">' + esc(w) + "</span>";
+    }).join(" ");
+    $(".intro-blurb", el).textContent = mode.blurb;
+    var fx = INTRO_FX[mode.id] || INTRO_FX.mix, parts = "";
+    for (var i = 0; i < 14; i++) {
+      parts += '<span style="left:' + ((i * 37) % 100) + "%;animation-duration:" + (5 + (i % 5)) + "s;animation-delay:" + (-(i * 0.7)).toFixed(1) +
+        "s;font-size:" + (22 + (i % 4) * 8) + 'px">' + fx[i % fx.length] + "</span>";
+    }
+    $(".intro-fx", el).innerHTML = reduced ? "" : parts;
+    var btn = $("#introGo");
+    btn.disabled = true;
+    btn.textContent = "Cueing up the tape…";
+    // restart the CSS animations
+    el.classList.remove("play"); void el.offsetWidth; el.classList.add("play");
+    el.hidden = false;
+    document.body.classList.add("intro-on");
+    var t0 = performance.now(), ready = false, finished = false, poll, resolveFn;
+    var done = new Promise(function (r) { resolveFn = r; });
+    function finish() {
+      if (finished) return;
+      finished = true;
+      clearInterval(poll);
+      if (token === startToken) hideIntro();
+      resolveFn();
+    }
+    btn.onclick = function () { if (ready) finish(); };
+    poll = setInterval(function () {
+      if (token !== startToken) { finish(); return; }
+      var t = performance.now() - t0;
+      var playing = jingle && !jingle.paused && !jingle.ended;
+      if (ready && t > (reduced ? 1200 : 2800) && (!playing || t > 12000)) finish();
+    }, 100);
+    itemsReady.then(function () {
+      ready = true;
+      btn.disabled = false;
+      btn.textContent = "Let's go ▶";
+    }, finish);
+    return done;
+  }
 
   function startGame(modeId, opts) {
     opts = opts || {};
@@ -432,14 +565,20 @@
     $("#progressBar").style.width = "0";
     $("#timerBar").style.transform = "scaleX(1)";
     $("#qCard").innerHTML = '<div class="loading"><div class="reel" aria-hidden="true"></div><p>Cueing up the tape...</p></div>';
-    loadPools(mode.pools).then(function () {
+    var seed = opts.seed || (mode.daily ? "daily-" + todayKey() : newSeed());
+    cycleNotice = false;
+    var itemsReady = loadManifest().then(function () {
+      if (token !== startToken) return null;
+      return (opts.ids ? itemsFromIds(mode, opts.ids, seed) : Promise.resolve([])).then(function (items) {
+        return items.length ? items : buildItems(mode, seed, !mode.daily && !opts.seed);
+      });
+    });
+    var introDone = runIntro(mode, itemsReady, token);
+    Promise.all([itemsReady, introDone]).then(function (r) {
+      var items = r[0];
       if (token !== startToken) return;
       startingMode = null;
-      var seed = opts.seed || (mode.daily ? "daily-" + todayKey() : newSeed());
-      cycleNotice = false;
-      var items = opts.ids ? itemsFromIds(mode, opts.ids, seed) : [];
-      if (!items.length) items = buildItems(mode, seed, !mode.daily && !opts.seed);
-      if (!items.length) throw new Error("no questions");
+      if (!items || !items.length) throw new Error("no questions");
       G = {
         mode: mode, seed: seed, items: items, i: 0, score: 0, correct: 0,
         streak: 0, bestStreak: 0, answers: [], lifelines: { fifty: 1, karl: 1 }, usedLifeline: false,
@@ -454,6 +593,7 @@
     }).catch(function () {
       if (token !== startToken) return;
       startingMode = null;
+      hideIntro();
       $("#qCard").innerHTML = '<div class="loading"><p>Couldn\'t load the questions. Check your connection and try again.</p>' +
         '<button class="btn btn-primary" type="button" id="retryLoad">Try again</button></div>';
       $("#retryLoad").addEventListener("click", function () { startGame(modeId, opts); });
@@ -706,7 +846,7 @@
       var cls = "tx-line" + (PEOPLE[sp] ? " sp-" + sp : "") + (item.hl === idx ? " hl" : "");
       return '<div class="' + cls + '"><b class="tx-sp">' + esc(speakerName(sp)) + "</b><span>" + esc(txt) + "</span></div>";
     }).join("");
-    return '<details class="tx" open><summary>📼 From the transcript</summary><div class="tx-body">' + rows + "</div></details>";
+    return '<details class="tx" open><summary>📼 ' + esc(item.src || "From the show") + '</summary><div class="tx-body">' + rows + "</div></details>";
   }
 
   function showFeedback(item, ok, pts, meta) {
@@ -726,8 +866,7 @@
     fb.className = "feedback " + (ok ? "good" : "bad");
     fb.innerHTML = '<div class="fb-head"><span>' + (ok ? "✅" : meta.timeout ? "⏰" : "❌") + "</span><span>" + esc(title) + "</span>" +
       (ok ? '<span class="fb-points">+' + fmt(pts) + "</span>" : "") + "</div>" + body +
-      transcriptHtml(item) +
-      '<div class="fb-src">Source: ' + esc(item.src) + "</div>" +
+      (item.ex && item.ex.length ? transcriptHtml(item) : '<div class="fb-src">📼 ' + esc(item.src) + "</div>") +
       '<div class="fb-actions"><button class="btn btn-primary" id="nextBtn" type="button">' + label + "</button></div>";
     fb.hidden = false;
     $("#nextBtn").addEventListener("click", next);
@@ -834,7 +973,7 @@
 
     award("first", newBadges);
     if (total >= 8 && G.correct === total) award("perfect", newBadges);
-    if (["karl", "ricky", "steve", "monkey", "show"].indexOf(mode.id) !== -1 && G.correct >= 8) award(mode.id, newBadges);
+    if (["karl", "ricky", "steve", "monkey", "educating", "show"].indexOf(mode.id) !== -1 && G.correct >= 8) award(mode.id, newBadges);
     if (mode.id === "rock" && G.rockTyped >= 5) award("rock", newBadges);
     if (mode.id === "who" && G.correct >= 10) award("who", newBadges);
     if (mode.id === "quick" && G.correct >= 12) award("quick", newBadges);
@@ -843,7 +982,7 @@
     if (!G.usedLifeline && pct >= 0.8 && mode.kind !== "quick" && total >= 8) award("nolife", newBadges);
     if (G.askKarlFail) award("askkarl", newBadges);
     if (total > 0 && G.correct === 0) award("shambles", newBadges);
-    if (MODES.every(function (m) { return P.modes[m.id]; })) award("all", newBadges);
+    if (MODES.every(function (m) { return P.modes[m.id] || modeCount(m) < 30; })) award("all", newBadges);
     if (P.points >= 5000) award("moon", newBadges);
     if (seenList.length >= 500) award("tapes", newBadges);
 
@@ -941,13 +1080,14 @@
     if (nat) nat.addEventListener("click", function () {
       navigator.share({ title: "Chimpanzee That!", text: shareText(), url: url }).then(shared).catch(function () {});
     });
-    $("#shCopy").addEventListener("click", function () { copyText(shareText() + " " + url); shared(); });
+    $("#shCopy").addEventListener("click", function () { copyText(url); shared(); });
     ["#shWa", "#shX", "#shFb"].forEach(function (s) { $(s).addEventListener("click", shared); });
     $("#shCard").addEventListener("click", function () { makeScoreCard(); shared(); });
     $("#shLink").addEventListener("focus", function () { this.select(); });
     $("#againBtn").addEventListener("click", function () {
       var id = G.mode.daily ? "mix" : G.mode.id;
       pendingStart = { mode: id };
+      playJingle(id);
       G = null;
       location.hash = "#/play/" + id; route();
     });
@@ -956,11 +1096,11 @@
 
   function copyText(t) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(t).then(function () { toast("Copied! Paste it to your mates."); }, fallback);
+      navigator.clipboard.writeText(t).then(function () { toast("Link copied! Paste it to your mates."); }, fallback);
     } else fallback();
     function fallback() {
       var i = $("#shLink"); i.value = t; i.select();
-      try { document.execCommand("copy"); toast("Copied! Paste it to your mates."); } catch (e) { toast("Select the link and copy it."); }
+      try { document.execCommand("copy"); toast("Link copied! Paste it to your mates."); } catch (e) { toast("Select the link and copy it."); }
     }
   }
 
@@ -1037,7 +1177,7 @@
 
   function renderHome() {
     var daily = P.dailies[todayKey()];
-    $("#modes").innerHTML = MODES.map(function (m) {
+    $("#modes").innerHTML = MODES.filter(function (m) { return !MANIFEST || modeCount(m) >= 30; }).map(function (m) {
       var accent = m.accent || (CATS[m.cat || m.kind] || {}).accent || "#ff8a1f";
       var best = P.best[m.id];
       var tag = m.daily && !daily ? '<span class="tag">NEW TODAY</span>' : "";
@@ -1069,16 +1209,16 @@
     { t: "Because... bricks don't fall in wars.", s: "XFM S1E21 · 20 Apr 2002" },
     { t: "I was a latecomer to pasta.", s: "The Ricky Gervais Guide to The English · 2009" }
   ];
-  var manifestFailed = false;
+  var KARLISMS = null;
+  var karlismsFailed = false;
   function renderKarlism() {
-    var list = (MANIFEST && MANIFEST.karlisms && MANIFEST.karlisms.length) ? MANIFEST.karlisms : null;
-    if (!list && !manifestFailed) { $("#karlism").textContent = "…"; $("#karlismSrc").textContent = ""; return; }
+    var list = KARLISMS && KARLISMS.length ? KARLISMS : null;
+    if (!list && !karlismsFailed) { $("#karlism").textContent = "…"; $("#karlismSrc").textContent = ""; return; }
     if (!list) list = FALLBACK_KARLISMS;
     var k = list[hashStr("karlism:" + dayNumber()) % list.length];
-    var d = new Date();
-    $("#karlismLabel").textContent = "Karl's thought for " + d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+    $("#karlismLabel").textContent = "Karl's thought of the day";
     $("#karlism").textContent = "“" + k.t + "”";
-    $("#karlismSrc").textContent = "Karl Pilkington · " + k.s + " · a new one tomorrow";
+    $("#karlismSrc").textContent = "Karl Pilkington · " + k.s;
   }
 
   function renderChallengeBanner() {
@@ -1093,6 +1233,7 @@
     $("#acceptBtn").addEventListener("click", function () {
       incomingChallenge = null;
       pendingStart = { mode: c.m, seed: c.s, ids: c.q, challenge: c };
+      playJingle(c.m);
       location.hash = "#/play/" + c.m; route();
     });
     $("#dismissBtn").addEventListener("click", function () { incomingChallenge = null; b.hidden = true; });
@@ -1149,11 +1290,11 @@
   }
 
   function renderAbout() {
-    $("#photoCredits").innerHTML = CREDITS.map(function (c) {
-      return "<li><b>" + esc(c.what) + "</b>: " + (c.url ? '<a href="' + esc(c.url) + '" target="_blank" rel="noopener">' + esc(c.title || "Wikimedia Commons") + "</a>" : "") +
-        (c.by ? " by " + esc(c.by) : "") + (c.license ? ", " + (c.licenseUrl ? '<a href="' + esc(c.licenseUrl) + '" target="_blank" rel="noopener">' + esc(c.license) + "</a>" : esc(c.license)) : "") +
-        (c.note ? " (" + esc(c.note) + ")" : "") + "</li>";
-    }).join("");
+    // the CC BY photo licences ask for a credit, so keep this one short line
+    $("#photoCredits").innerHTML = "Photos via Wikimedia Commons: " + CREDITS.map(function (c) {
+      var lic = c.licenseUrl ? '<a href="' + esc(c.licenseUrl) + '" target="_blank" rel="noopener">' + esc(c.license) + "</a>" : esc(c.license);
+      return '<a href="' + esc(c.url) + '" target="_blank" rel="noopener">' + esc(c.what) + "</a> by " + esc(c.by) + " (" + lic + ")";
+    }).join(", ") + ".";
     var c = MANIFEST && MANIFEST.counts;
     if (c) {
       $("#aboutCounts").textContent = "Right now there are " + fmt(MCQ_POOLS.reduce(function (s, p) { return s + (c[p] || 0); }, 0)) + " questions, " +
@@ -1174,7 +1315,7 @@
     var h = (location.hash || "#/").replace(/^#\/?/, "");
     var parts = h.split("/");
     var r = parts[0] || "";
-    if (r !== "play") { stopTimer(); hideNextBar(); startToken++; startingMode = null; }
+    if (r !== "play") { stopTimer(); hideNextBar(); hideIntro(); stopJingle(); startToken++; startingMode = null; }
     // leaving a round half-way through abandons it (its points never counted)
     if (r !== "play" && r !== "results" && G && !G.finished) G.finished = true;
     if (r === "play") {
@@ -1208,6 +1349,7 @@
     var id = t.getAttribute("data-start");
     pendingStart = { mode: id };
     sfx.click();
+    playJingle(id);
     if (location.hash === "#/play/" + id) route(); else location.hash = "#/play/" + id;
   });
 
@@ -1275,10 +1417,14 @@
   route();
   loadManifest().then(function () {
     if (!$("#screen-home").hidden) renderHome();
-    // warm the cache in the background so the first round starts instantly
-    setTimeout(function () { loadPools(["karl", "who"]).catch(function () {}); }, 1500);
+    return getJSON("data/karlisms.json").then(function (list) {
+      if (Array.isArray(list)) KARLISMS = list.filter(function (k) { return k && typeof k.t === "string"; });
+      // warm the cache in the background so the first round starts quickly
+      setTimeout(function () { ["karl", "who"].forEach(warmPool); }, 1500);
+    });
   }).catch(function () {
-    manifestFailed = true;
+    karlismsFailed = true;
+  }).then(function () {
     if (!$("#screen-home").hidden) renderKarlism();
   });
 })();

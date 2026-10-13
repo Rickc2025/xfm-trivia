@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -138,16 +138,10 @@
         <p><b>Chimpanzee That!</b> is an unofficial fan-made trivia game about the radio shows, podcasts and audiobooks of <b>Ricky Gervais</b>, <b>Stephen Merchant</b> and <b>Karl Pilkington</b>.</p>
         <p id="aboutCounts"></p>
         <p>Every question, Rockbusters clue and quote was written from the episode transcripts and then checked a second time against the exact lines it came from. After you answer, the game shows you those lines. The questions cover XFM (2001 to 2005), the 2005 BBC Radio 2 specials, the Guardian podcasts and Podfathers (2005 to 2006), the Fame and NME specials, and the Ricky Gervais Guides (2008 to 2011). Each answer tells you which episode it came from, so you can go and listen to the bit.</p>
-        <h3>Where the material comes from</h3>
-        <ul>
-          <li><a href="https://www.therickygervaisshow.com/xfm-vault" target="_blank" rel="noopener">The Ricky Gervais Show: XFM Vault</a> (official episode transcripts)</li>
-          <li><a href="https://scrimpton.com" target="_blank" rel="noopener">Scrimpton.com</a>, the community-transcribed archive. Its name comes from a word Ricky made up in the Guide to the Future, and that's one of the questions.</li>
-        </ul>
-        <h3>Photo credits</h3>
-        <ul id="photoCredits"></ul>
         <h3>Scores and privacy</h3>
         <p>There are no accounts and nothing is sent to a server. Your name, points and badges are saved in your browser's local storage on this device only. A challenge link carries the round, the question seed, your name and your score, so a friend can play the same questions.</p>
-        <p class="muted small">Not affiliated with or endorsed by Ricky Gervais, Stephen Merchant, Karl Pilkington, XFM/Radio X, the BBC or Guardian Media Group. All quotes belong to their speakers and are used here for fan commentary and trivia. If you're a rights holder and want something changed, open an issue on the GitHub repository.</p>
+        <p class="muted small" id="photoCredits"></p>
+        <p class="muted small">Not affiliated with or endorsed by Ricky Gervais, Stephen Merchant, Karl Pilkington, XFM/Radio X, the BBC or Guardian Media Group. All quotes belong to their speakers and are used here for fan commentary and trivia.</p>
       </div>
     </section>
   </main>
@@ -157,12 +151,23 @@
     <a href="#/about">About &amp; credits</a>
   </footer>
 
+  <div class="intro" id="intro" hidden>
+    <div class="intro-fx" aria-hidden="true"></div>
+    <div class="intro-inner">
+      <div class="intro-onair"><span class="dot"></span>ON AIR</div>
+      <div class="intro-icon" aria-hidden="true"></div>
+      <div class="intro-kicker">XFM 104.9 presents</div>
+      <h2 class="intro-title"></h2>
+      <p class="intro-blurb"></p>
+      <button class="btn btn-primary btn-lg" id="introGo" type="button">Let's go ▶</button>
+    </div>
+  </div>
   <div class="next-bar" id="nextBar" hidden>
     <button class="btn btn-primary btn-lg" id="nextBarBtn" type="button">Next ▶</button>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
   <canvas id="confetti" aria-hidden="true"></canvas>
 
-  <script src="js/app.js"></script>
+  <script src="js/app.js?v=4"></script>
 </body>
 </html>

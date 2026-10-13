@@ -323,7 +323,7 @@ h1 { font-family: var(--display); font-weight: 400; font-size: clamp(30px, 5vw, 
 
 /* ---------- transcript excerpt shown after answering ---------- */
 .tx { margin: 12px 0 8px; background: rgba(0, 0, 0, .28); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
-.tx summary { cursor: pointer; list-style: none; padding: 9px 14px; font-family: var(--display); font-size: 12px; letter-spacing: 1px; color: var(--orange-2); background: rgba(255, 255, 255, .03); }
+.tx summary { cursor: pointer; list-style: none; padding: 9px 14px; font-weight: 800; font-size: 13px; color: var(--orange-2); background: rgba(255, 255, 255, .03); }
 .tx summary::-webkit-details-marker { display: none; }
 .tx summary::after { content: "▾"; float: right; color: var(--muted); }
 .tx:not([open]) summary::after { content: "▸"; }
@@ -454,3 +454,39 @@ h1 { font-family: var(--display); font-weight: 400; font-size: clamp(30px, 5vw, 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------------------------------------------------------------- round title screen */
+.intro { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
+  overflow: hidden; text-align: center; --accent: var(--orange);
+  background: radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--accent) 38%, var(--bg)) 0%, var(--bg) 62%, #090b18 100%); }
+.intro[hidden] { display: none; }
+body.intro-on { overflow: hidden; }
+.intro-inner { position: relative; z-index: 2; max-width: 560px; width: 100%; }
+.intro-onair { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border: 2px solid var(--red); border-radius: 8px;
+  color: var(--red); font-family: var(--display); font-size: 12px; letter-spacing: 2px; margin-bottom: 18px; }
+.intro-onair .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--red); box-shadow: 0 0 10px var(--red); }
+.intro.play .intro-onair { animation: introFade .4s both, introBlink 1s .4s steps(2, jump-none) infinite; }
+.intro-icon { width: 132px; height: 132px; margin: 0 auto 18px; border-radius: 50%; display: grid; place-items: center; font-size: 66px;
+  background: rgba(255, 255, 255, .06); border: 5px solid var(--accent); overflow: hidden; }
+.intro-icon img { width: 100%; height: 100%; object-fit: cover; }
+.intro.play .intro-icon { animation: introPop .75s cubic-bezier(.2, 1.6, .4, 1) both, introPulse 1.6s .8s ease-out infinite; }
+.intro-kicker { font-weight: 900; letter-spacing: 3px; font-size: 12px; color: var(--accent); text-transform: uppercase; }
+.intro.play .intro-kicker { animation: introFade .5s .2s both; }
+.intro-title { font-family: var(--display); font-size: clamp(34px, 10vw, 66px); line-height: 1.05; margin: 10px 0 12px; font-weight: 400; }
+.intro-title span { display: inline-block; }
+.intro.play .intro-title span { animation: introDrop .6s cubic-bezier(.2, 1.5, .4, 1) both; }
+.intro-blurb { color: var(--muted); font-size: 17px; margin: 0 auto 24px; max-width: 440px; }
+.intro.play .intro-blurb { animation: introFade .5s .85s both; }
+.intro.play #introGo { animation: introFade .4s 1.05s both; }
+#introGo:disabled { opacity: .7; cursor: progress; }
+.intro-fx { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.intro-fx span { position: absolute; bottom: -80px; opacity: .55; animation: introFloat linear infinite; }
+@keyframes introPop { from { transform: scale(0) rotate(-25deg); } to { transform: scale(1) rotate(0); } }
+@keyframes introPulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 70%, transparent); } 100% { box-shadow: 0 0 0 28px transparent; } }
+@keyframes introDrop { from { opacity: 0; transform: translateY(-70px) rotate(-8deg); } to { opacity: 1; transform: none; } }
+@keyframes introFade { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes introBlink { 50% { opacity: .35; } }
+@keyframes introFloat { from { transform: translateY(0) rotate(0); } to { transform: translateY(-125vh) rotate(360deg); } }
+@media (max-width: 560px) { .intro-icon { width: 104px; height: 104px; font-size: 52px; } .intro-blurb { font-size: 15px; } }
+@media (max-height: 500px) { .intro-icon { width: 72px; height: 72px; font-size: 36px; margin-bottom: 8px; } .intro-onair { margin-bottom: 8px; } .intro-blurb { margin-bottom: 12px; } }
+@media (prefers-reduced-motion: reduce) { .intro.play * { animation: none !important; } }

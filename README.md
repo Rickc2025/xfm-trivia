@@ -14,6 +14,7 @@ Thousands of questions, Rockbusters clues and quotes, all generated from the epi
 | 📅 Daily Challenge | The same 10 questions for everyone, every day |
 | 🍊 Karl / 😂 Ricky / 🎓 Steve | 10 questions about each of them (Karl's Diary, holidays, Auntie Nora, boxing, trowels...) |
 | 🐒 Monkey News | Space chimps, monkey surgeons, the 1950s monkey jockey, Ham, Oliver... |
+| 📚 Educating Ricky | Karl's XFM feature: "Alien gives man a beard", the hairy Chinese kid... (appears once it has 30+ questions) |
 | 📻 The Show | XFM 104.9, features, jingles, guests, the Guides, the Podfathers |
 | 🎸 Rockbusters | Karl's real clues. Type the answer for full points, or ask for options |
 | 💬 Who Said It? | Real lines: Ricky, Steve or Karl? |
@@ -61,12 +62,17 @@ The `.nojekyll` file tells Pages to serve the files exactly as they are.
 
 ## Data format
 
-The game loads plain JSON files from `data/`:
+The game loads plain JSON from `data/`. Each round's questions are split into shards of about 150 (`data/karl/0.json`, `data/karl/1.json`...), so a round only downloads what it needs. An item's id starts with a letter for its pool (`k` Karl, `r` Ricky, `s` Steve, `m` Monkey News, `e` Educating Ricky, `h` The Show, `b` Rockbusters, `w` Who Said It?), and the game works out the shard from the id.
 
-* `q-karl.json`, `q-ricky.json`, `q-steve.json`, `q-monkey.json`, `q-show.json`: multiple choice: `id`, `q` question, `a` answer, `x` three wrong answers, `f` fun fact, `s` source episode, `d` difficulty 1–3, `ex` transcript excerpt as `[speaker, text]` pairs
-* `rock.json`: `i` initials, `c` Karl's clue, `a` answer, `x` wrong options, `pun` how it works, `s`, `ex`
-* `quotes.json`: `t` the quote, `w` who said it (`karl`, `ricky` or `steve`), `s`, `ex`, `hl` (which excerpt line is the quote)
-* `manifest.json`: counts, a cache-busting `version`, and the list of Karl quotes used for the thought of the day
+* Questions: `id`, `q` question, `a` answer, `x` three wrong answers, `f` fun fact, `s` source episode, `d` difficulty 1–3, `ex` transcript excerpt as `[speaker, text]` pairs
+* Rockbusters: `i` initials, `c` Karl's clue, `a` answer, `x` wrong options, `pun` how it works, `s`, `ex`
+* Quotes: `t` the quote, `w` who said it (`karl`, `ricky` or `steve`), `s`, `ex`, `hl` (which excerpt line is the quote)
+* `manifest.json`: counts and shard counts per pool, plus a cache-busting `version`
+* `karlisms.json`: the Karl quotes used for the thought of the day
+
+## Jingles
+
+Each round opens with an animated title screen. A round can also play a jingle there: put the audio file in `audio/` (Monkey News looks for `audio/monkey-news.wav`) and list it in `JINGLES` near the top of the title-screen code in `js/app.js`. If the file isn't there, the round just starts without sound.
 
 ## Credits
 
