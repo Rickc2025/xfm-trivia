@@ -14,7 +14,7 @@ Thousands of questions, Rockbusters clues and quotes, all generated from the epi
 | 📅 Daily Challenge | The same 10 questions for everyone, every day |
 | 🍊 Karl / 😂 Ricky / 🎓 Steve | 10 questions about each of them (Karl's Diary, holidays, Auntie Nora, boxing, trowels...) |
 | 🐒 Monkey News | Space chimps, monkey surgeons, the 1950s monkey jockey, Ham, Oliver... |
-| 📚 Educating Ricky | Karl's XFM feature: "Alien gives man a beard", the hairy Chinese kid... (appears once it has 30+ questions) |
+| 📚 Educating Ricky | Karl's XFM feature: "Alien gives man a beard", the hairy Chinese kid... |
 | 📻 The Show | XFM 104.9, features, jingles, guests, the Guides, the Podfathers |
 | 🎸 Rockbusters | Karl's real clues. Type the answer for full points, or ask for options |
 | 💬 Who Said It? | Real lines: Ricky, Steve or Karl? |
